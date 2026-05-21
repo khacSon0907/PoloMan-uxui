@@ -100,7 +100,7 @@ function Header() {
               </span>
             </button>
 
-            <button className="hidden sm:flex items-center justify-center p-2 text-neutral-600 hover:text-black" aria-label="User profile">
+            <Link to="/login" className="hidden sm:flex items-center justify-center p-2 text-neutral-600 hover:text-black" aria-label="User profile">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -109,7 +109,7 @@ function Header() {
                   d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0"
                 />
               </svg>
-            </button>
+            </Link>
           </div>
         </div>
       </div>

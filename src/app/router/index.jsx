@@ -1,11 +1,16 @@
 import React from 'react'
 import { createBrowserRouter } from 'react-router-dom'
+
 import MainLayout from '../layouts/MainLayout'
+
 import Home from '../../pages/Home'
 import Products from '../../pages/Products'
+import Login from '../../pages/Login'
+import Register from '../../pages/Register'
 import NotFound from '../../pages/NotFound'
 
 export const router = createBrowserRouter([
+  // MAIN WEBSITE
   {
     path: '/',
     element: <MainLayout />,
@@ -20,12 +25,24 @@ export const router = createBrowserRouter([
       },
       {
         path: 'collections',
-        element: <Products />, // map collections to Products catalog for now
-      },
-      {
-        path: '*',
-        element: <NotFound />,
+        element: <Products />,
       },
     ],
+  },
+
+  // AUTH PAGES
+  {
+    path: '/login',
+    element: <Login />,
+  },
+  {
+    path: '/register',
+    element: <Register />,
+  },
+
+  // 404
+  {
+    path: '*',
+    element: <NotFound />,
   },
 ])

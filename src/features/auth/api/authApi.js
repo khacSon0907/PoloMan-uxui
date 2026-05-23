@@ -2,7 +2,10 @@ import { getApiData, http, publicHttp, tokenStorage } from '../../../shared/api'
 
 function persistLoginTokens(response) {
   const loginData = getApiData(response)
-  tokenStorage.setAccessToken(loginData?.accessToken)
+  tokenStorage.setAccessToken(
+    loginData?.accessToken,
+    loginData?.user || loginData?.account || loginData?.profile,
+  )
   return response
 }
 

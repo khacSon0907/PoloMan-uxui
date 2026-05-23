@@ -1,18 +1,70 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+
+import { authApi } from '../../features/auth'
+import { tokenStorage } from '../../shared/api'
+
+function getDisplayName(user) {
+  return user?.username || user?.fullName || user?.name || user?.email || 'Tài khoản'
+}
+
+function getInitial(user) {
+  return getDisplayName(user).trim().charAt(0).toUpperCase() || 'U'
+}
 
 function Header() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const accountMenuRef = useRef(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const location = useLocation()
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
+  const user = authSnapshot.user
 
   const isActive = (path) => location.pathname === path
 
   const navClass = (path) =>
-    `relative py-1 whitespace-nowrap transition-colors duration-300 hover:text-black ${isActive(path)
-      ? 'text-black after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-full after:bg-black'
-      : 'after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-0 after:bg-black after:transition-all hover:after:w-full'
+    `relative py-1 whitespace-nowrap transition-colors duration-300 hover:text-black ${
+      isActive(path)
+        ? 'text-black after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-full after:bg-black'
+        : 'after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-0 after:bg-black after:transition-all hover:after:w-full'
     }`
+
+  useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
+
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setAccountMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [accountMenuOpen])
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+
+    try {
+      await authApi.logout()
+      navigate('/login', {
+        state: {
+          successMessage: 'Đăng xuất thành công.',
+        },
+      })
+    } finally {
+      setIsLoggingOut(false)
+      setAccountMenuOpen(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/95 backdrop-blur-md">
@@ -100,16 +152,76 @@ function Header() {
               </span>
             </button>
 
-            <Link to="/login" className="hidden sm:flex items-center justify-center p-2 text-neutral-600 hover:text-black" aria-label="User profile">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0"
-                />
-              </svg>
-            </Link>
+            {authSnapshot.isAuthenticated ? (
+              <div ref={accountMenuRef} className="relative hidden sm:block">
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((isOpen) => !isOpen)}
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 text-sm font-semibold text-neutral-900 hover:border-black transition-colors"
+                  aria-label="Tài khoản"
+                  aria-expanded={accountMenuOpen}
+                >
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    getInitial(user)
+                  )}
+                </button>
+
+                {accountMenuOpen && (
+                  <div className="absolute right-0 top-12 w-64 rounded-lg border border-neutral-200 bg-white py-2 shadow-lg">
+                    <div className="px-4 py-3 border-b border-neutral-100">
+                      <p className="truncate text-sm font-semibold text-neutral-900">
+                        {getDisplayName(user)}
+                      </p>
+                      {user?.email && (
+                        <p className="mt-1 truncate text-xs text-neutral-500">
+                          {user.email}
+                        </p>
+                      )}
+                    </div>
+
+                    <Link
+                      to="/account"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                    >
+                      Tài khoản của tôi
+                    </Link>
+                    <Link
+                      to="/orders"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                    >
+                      Đơn hàng
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="hidden sm:flex items-center justify-center p-2 text-neutral-600 hover:text-black"
+                aria-label="Đăng nhập"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0"
+                  />
+                </svg>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -120,6 +232,18 @@ function Header() {
           <Link to="/products" onClick={() => setMobileMenuOpen(false)} className={isActive('/products') ? 'text-black' : ''}>Sản phẩm</Link>
           <Link to="/collections" onClick={() => setMobileMenuOpen(false)} className={isActive('/collections') ? 'text-black' : ''}>Bộ sưu tập</Link>
           <Link to="/about" onClick={() => setMobileMenuOpen(false)} className={isActive('/about') ? 'text-black' : ''}>Về chúng tôi</Link>
+          {authSnapshot.isAuthenticated ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="text-left text-red-600 disabled:opacity-60"
+            >
+              {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+            </button>
+          ) : (
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className={isActive('/login') ? 'text-black' : ''}>Đăng nhập</Link>
+          )}
         </div>
       )}
     </header>

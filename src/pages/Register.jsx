@@ -1,25 +1,78 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { getApiMessage } from '../shared/api'
+import { authApi } from '../features/auth'
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function validateRegisterForm({ username, email, password, agreeTerms }) {
+  if (!username) return 'Tên người dùng không được để trống'
+  if (username.length < 3 || username.length > 30) {
+    return 'Tên người dùng phải từ 3 đến 30 ký tự'
+  }
+  if (!email) return 'Email không được để trống'
+  if (!EMAIL_REGEX.test(email)) return 'Email không hợp lệ'
+  if (!password) return 'Mật khẩu không được để trống'
+  if (password.length < 6 || password.length > 50) {
+    return 'Mật khẩu phải từ 6 đến 50 ký tự'
+  }
+  if (!agreeTerms) return 'Bạn cần đồng ý với điều khoản dịch vụ'
+  return ''
+}
 
 function Register() {
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [agreeTerms, setAgreeTerms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+
+    const payload = {
+      username: username.trim(),
+      email: email.trim(),
+      password,
+      agreeTerms,
+    }
+
+    const validationMessage = validateRegisterForm(payload)
+    if (validationMessage) {
+      setErrorMessage(validationMessage)
+      return
+    }
+
+    setErrorMessage('')
     setIsLoading(true)
-    // TODO: integrate with backend
-    setTimeout(() => setIsLoading(false), 1500)
+
+    try {
+      await authApi.register({
+        username: payload.username,
+        email: payload.email,
+        password: payload.password,
+      })
+      navigate('/login')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.'))
+    } finally {
+      setIsLoading(false)
+    }
   }
+
+  const passwordStrength =
+    (password.length >= 6 ? 1 : 0) +
+    (/[A-Z]/.test(password) ? 1 : 0) +
+    (/[0-9]/.test(password) ? 1 : 0) +
+    (/[^A-Za-z0-9]/.test(password) ? 1 : 0)
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Brand */}
         <div className="text-center mb-10">
           <Link
             to="/"
@@ -32,16 +85,25 @@ function Register() {
           </p>
         </div>
 
-        {/* Register Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Username */}
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {errorMessage && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
+
           <div className="relative">
             <input
               id="register-username"
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value)
+                setErrorMessage('')
+              }}
               required
+              minLength={3}
+              maxLength={30}
               placeholder=" "
               className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
             />
@@ -53,13 +115,15 @@ function Register() {
             </label>
           </div>
 
-          {/* Email */}
           <div className="relative">
             <input
               id="register-email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setErrorMessage('')
+              }}
               required
               placeholder=" "
               className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
@@ -72,14 +136,18 @@ function Register() {
             </label>
           </div>
 
-          {/* Password */}
           <div className="relative">
             <input
               id="register-password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setErrorMessage('')
+              }}
               required
+              minLength={6}
+              maxLength={50}
               placeholder=" "
               className="peer w-full h-13 px-4 pt-5 pb-2 pr-12 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
             />
@@ -108,47 +176,41 @@ function Register() {
             </button>
           </div>
 
-          {/* Password strength indicator */}
           {password && (
             <div className="space-y-2">
               <div className="flex gap-1.5">
-                {[1, 2, 3, 4].map((level) => {
-                  const strength =
-                    (password.length >= 8 ? 1 : 0) +
-                    (/[A-Z]/.test(password) ? 1 : 0) +
-                    (/[0-9]/.test(password) ? 1 : 0) +
-                    (/[^A-Za-z0-9]/.test(password) ? 1 : 0)
-                  return (
-                    <div
-                      key={level}
-                      className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-                        level <= strength
-                          ? strength <= 1
-                            ? 'bg-neutral-400'
-                            : strength <= 2
+                {[1, 2, 3, 4].map((level) => (
+                  <div
+                    key={level}
+                    className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                      level <= passwordStrength
+                        ? passwordStrength <= 1
+                          ? 'bg-neutral-400'
+                          : passwordStrength <= 2
                             ? 'bg-neutral-500'
-                            : strength <= 3
-                            ? 'bg-neutral-700'
-                            : 'bg-black'
-                          : 'bg-neutral-200'
-                      }`}
-                    />
-                  )
-                })}
+                            : passwordStrength <= 3
+                              ? 'bg-neutral-700'
+                              : 'bg-black'
+                        : 'bg-neutral-200'
+                    }`}
+                  />
+                ))}
               </div>
               <p className="text-[11px] text-neutral-400">
-                Sử dụng ít nhất 8 ký tự, bao gồm chữ hoa, số và ký tự đặc biệt
+                Mật khẩu phải từ 6 đến 50 ký tự
               </p>
             </div>
           )}
 
-          {/* Terms agreement */}
           <label className="flex items-start gap-3 cursor-pointer group">
             <div className="relative mt-0.5">
               <input
                 type="checkbox"
                 checked={agreeTerms}
-                onChange={(e) => setAgreeTerms(e.target.checked)}
+                onChange={(e) => {
+                  setAgreeTerms(e.target.checked)
+                  setErrorMessage('')
+                }}
                 className="sr-only peer"
               />
               <div className="w-5 h-5 border border-neutral-300 rounded transition-all duration-300 peer-checked:bg-black peer-checked:border-black group-hover:border-neutral-500" />
@@ -177,10 +239,9 @@ function Register() {
             </span>
           </label>
 
-          {/* Submit */}
           <button
             type="submit"
-            disabled={isLoading || !agreeTerms}
+            disabled={isLoading}
             className="w-full h-12 bg-black text-white text-sm font-semibold uppercase tracking-widest rounded-lg hover:bg-neutral-800 active:scale-[0.98] transition-all duration-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoading ? (
@@ -194,7 +255,6 @@ function Register() {
           </button>
         </form>
 
-        {/* Login link */}
         <p className="mt-8 text-center text-sm text-neutral-500">
           Đã có tài khoản?{' '}
           <Link

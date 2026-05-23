@@ -1,23 +1,56 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { getApiMessage } from '../shared/api'
+import { authApi } from '../features/auth'
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function validateLoginForm({ email, password }) {
+  if (!email) return 'Email không được để trống'
+  if (!EMAIL_REGEX.test(email)) return 'Email không đúng định dạng'
+  if (!password) return 'Mật khẩu không được để trống'
+  return ''
+}
 
 function Login() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+
+    const payload = {
+      email: email.trim(),
+      password,
+    }
+
+    const validationMessage = validateLoginForm(payload)
+    if (validationMessage) {
+      setErrorMessage(validationMessage)
+      return
+    }
+
+    setErrorMessage('')
     setIsLoading(true)
-    // TODO: integrate with backend
-    setTimeout(() => setIsLoading(false), 1500)
+
+    try {
+      await authApi.login(payload)
+      navigate('/')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Brand */}
         <div className="text-center mb-10">
           <Link
             to="/"
@@ -30,7 +63,6 @@ function Login() {
           </p>
         </div>
 
-        {/* Google Sign-in */}
         <button
           type="button"
           className="w-full flex items-center justify-center gap-3 h-12 border border-neutral-300 rounded-lg bg-white text-sm font-medium text-neutral-700 hover:border-black hover:shadow-sm transition-all duration-300 cursor-pointer group"
@@ -58,7 +90,6 @@ function Login() {
           </span>
         </button>
 
-        {/* Divider */}
         <div className="relative my-8">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-neutral-200" />
@@ -70,15 +101,22 @@ function Login() {
           </div>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Email */}
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {errorMessage && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
+
           <div className="relative">
             <input
               id="login-email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setErrorMessage('')
+              }}
               required
               placeholder=" "
               className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
@@ -91,13 +129,15 @@ function Login() {
             </label>
           </div>
 
-          {/* Password */}
           <div className="relative">
             <input
               id="login-password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setErrorMessage('')
+              }}
               required
               placeholder=" "
               className="peer w-full h-13 px-4 pt-5 pb-2 pr-12 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
@@ -127,7 +167,6 @@ function Login() {
             </button>
           </div>
 
-          {/* Forgot password */}
           <div className="flex justify-end">
             <a
               href="/forgot-password"
@@ -137,7 +176,6 @@ function Login() {
             </a>
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
@@ -154,7 +192,6 @@ function Login() {
           </button>
         </form>
 
-        {/* Register link */}
         <p className="mt-8 text-center text-sm text-neutral-500">
           Chưa có tài khoản?{' '}
           <Link
@@ -165,7 +202,6 @@ function Login() {
           </Link>
         </p>
 
-        {/* Terms */}
         <p className="mt-6 text-center text-[11px] text-neutral-400 leading-relaxed">
           Bằng cách tiếp tục, bạn đồng ý với{' '}
           <a href="/terms" className="underline underline-offset-2 hover:text-black transition-colors">

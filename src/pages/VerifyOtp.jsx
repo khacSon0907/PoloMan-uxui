@@ -8,8 +8,8 @@ import { getApiMessage } from '../shared/api'
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function validateVerifyOtpForm({ email, otp }) {
-  if (!email) return 'Email không được để trống'
-  if (!EMAIL_REGEX.test(email)) return 'Email không đúng định dạng'
+  if (!email) return 'Không tìm thấy email đăng ký. Vui lòng đăng ký lại.'
+  if (!EMAIL_REGEX.test(email)) return 'Email đăng ký không hợp lệ. Vui lòng đăng ký lại.'
   if (!otp) return 'OTP không được để trống'
   return ''
 }
@@ -22,7 +22,6 @@ function VerifyOtp() {
     [location.state?.email],
   )
 
-  const [email, setEmail] = useState(initialEmail)
   const [otp, setOtp] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -32,7 +31,7 @@ function VerifyOtp() {
     e.preventDefault()
 
     const payload = {
-      email: email.trim(),
+      email: initialEmail.trim(),
       otp: otp.trim(),
     }
 
@@ -90,30 +89,6 @@ function VerifyOtp() {
               {errorMessage}
             </div>
           )}
-
-          <div className="relative">
-            <input
-              id="verify-email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                const nextEmail = e.target.value
-                setEmail(nextEmail)
-                pendingVerificationStorage.setEmail(nextEmail.trim())
-                setErrorMessage('')
-                setSuccessMessage('')
-              }}
-              required
-              placeholder=" "
-              className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
-            />
-            <label
-              htmlFor="verify-email"
-              className="absolute left-4 top-2 text-[11px] text-neutral-400 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
-            >
-              Email
-            </label>
-          </div>
 
           <div className="relative">
             <input

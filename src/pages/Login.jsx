@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { getApiMessage } from '../shared/api'
 import { authApi } from '../features/auth'
@@ -15,11 +15,13 @@ function validateLoginForm({ email, password }) {
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState(location.state?.successMessage || '')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -32,10 +34,12 @@ function Login() {
     const validationMessage = validateLoginForm(payload)
     if (validationMessage) {
       setErrorMessage(validationMessage)
+      setSuccessMessage('')
       return
     }
 
     setErrorMessage('')
+    setSuccessMessage('')
     setIsLoading(true)
 
     try {
@@ -102,6 +106,12 @@ function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {successMessage && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {successMessage}
+            </div>
+          )}
+
           {errorMessage && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {errorMessage}
@@ -116,6 +126,7 @@ function Login() {
               onChange={(e) => {
                 setEmail(e.target.value)
                 setErrorMessage('')
+                setSuccessMessage('')
               }}
               required
               placeholder=" "
@@ -137,6 +148,7 @@ function Login() {
               onChange={(e) => {
                 setPassword(e.target.value)
                 setErrorMessage('')
+                setSuccessMessage('')
               }}
               required
               placeholder=" "

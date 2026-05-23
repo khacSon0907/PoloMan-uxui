@@ -6,6 +6,7 @@ import Home from '../../pages/Home'
 import Products from '../../pages/Products'
 import Login from '../../pages/Login'
 import Register from '../../pages/Register'
+import VerifyOtp from '../../pages/VerifyOtp'
 import NotFound from '../../pages/NotFound'
 
 export const router = createBrowserRouter([
@@ -37,6 +38,10 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <Register />,
+  },
+  {
+    path: '/verify-otp',
+    element: <VerifyOtp />,
   },
 
   // 404

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { getApiMessage } from '../shared/api'
 import { authApi } from '../features/auth'
+import { pendingVerificationStorage } from '../features/auth/api/pendingVerificationStorage'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -56,7 +57,14 @@ function Register() {
         email: payload.email,
         password: payload.password,
       })
-      navigate('/login')
+
+      pendingVerificationStorage.setEmail(payload.email)
+      navigate('/verify-otp', {
+        state: {
+          email: payload.email,
+          successMessage: 'Đăng ký thành công. Vui lòng nhập OTP đã được gửi tới email của bạn.',
+        },
+      })
     } catch (error) {
       setErrorMessage(getApiMessage(error, 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.'))
     } finally {

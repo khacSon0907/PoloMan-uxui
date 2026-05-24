@@ -7,6 +7,9 @@ import Products from '../../pages/Products'
 import Login from '../../pages/Login'
 import Register from '../../pages/Register'
 import VerifyOtp from '../../pages/VerifyOtp'
+import ForgotPassword from '../../pages/ForgotPassword'
+import Account from '../../pages/Account'
+import ChangePassword from '../../pages/ChangePassword'
 import NotFound from '../../pages/NotFound'
 
 export const router = createBrowserRouter([
@@ -27,6 +30,14 @@ export const router = createBrowserRouter([
         path: 'collections',
         element: <Products />,
       },
+      {
+        path: 'account',
+        element: <Account />,
+      },
+      {
+        path: 'change-password',
+        element: <ChangePassword />,
+      },
     ],
   },
 
@@ -42,6 +53,10 @@ export const router = createBrowserRouter([
   {
     path: '/verify-otp',
     element: <VerifyOtp />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPassword />,
   },
 
   // 404

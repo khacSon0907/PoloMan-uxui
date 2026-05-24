@@ -23,6 +23,22 @@ export const authApi = {
     return publicHttp.post('/auth/verify-otp', payload)
   },
 
+  forgotPassword(payload) {
+    return publicHttp.post('/auth/forgot-password', payload)
+  },
+
+  verifyForgotPasswordOtp(payload) {
+    return publicHttp.post('/auth/verify-forgot-password-otp', payload)
+  },
+
+  resetPassword(payload) {
+    return publicHttp.post('/auth/reset-password', payload)
+  },
+
+  changePassword(payload) {
+    return http.post('/auth/change-password', payload)
+  },
+
   async refreshToken(refreshToken) {
     const response = await publicHttp.post(
       '/auth/refresh',

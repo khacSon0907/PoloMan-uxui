@@ -180,12 +180,12 @@ function Login() {
           </div>
 
           <div className="flex justify-end">
-            <a
-              href="/forgot-password"
+            <Link
+              to="/forgot-password"
               className="text-xs text-neutral-500 hover:text-black transition-colors underline underline-offset-4"
             >
               Quên mật khẩu?
-            </a>
+            </Link>
           </div>
 
           <button

@@ -193,11 +193,18 @@ function Header() {
                       Tài khoản của tôi
                     </Link>
                     <Link
-                      to="/orders"
+                      to="/account?tab=orders"
                       onClick={() => setAccountMenuOpen(false)}
                       className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
                     >
                       Đơn hàng
+                    </Link>
+                    <Link
+                      to="/change-password"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                    >
+                      Đổi mật khẩu
                     </Link>
                     <button
                       type="button"

@@ -38,15 +38,27 @@ const getAccessTokenFromResponse = (response) =>
   response?.data?.accessToken ||
   response?.accessToken;
 
+const getUserFromResponse = (response) =>
+  response?.data?.data?.user ||
+  response?.data?.data?.account ||
+  response?.data?.data?.profile ||
+  response?.data?.user ||
+  response?.data?.account ||
+  response?.data?.profile ||
+  response?.user ||
+  response?.account ||
+  response?.profile;
+
 export const refreshAccessToken = async () => {
   const refreshResponse = await publicHttp.post("/auth/refresh");
   const newAccessToken = getAccessTokenFromResponse(refreshResponse);
+  const user = getUserFromResponse(refreshResponse);
 
   if (!newAccessToken) {
     throw new Error("Refresh response did not include an access token");
   }
 
-  tokenStorage.setAccessToken(newAccessToken);
+  tokenStorage.setAccessToken(newAccessToken, user);
   return newAccessToken;
 };
 

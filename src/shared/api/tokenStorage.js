@@ -1,5 +1,33 @@
+const USER_STORAGE_KEY = 'poloman.auth.user'
+
+function readStoredUser() {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const rawUser = window.sessionStorage.getItem(USER_STORAGE_KEY)
+    return rawUser ? JSON.parse(rawUser) : null
+  } catch {
+    return null
+  }
+}
+
+function storeUser(user) {
+  if (typeof window === 'undefined') return
+
+  try {
+    if (user) {
+      window.sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+    } else {
+      window.sessionStorage.removeItem(USER_STORAGE_KEY)
+    }
+  } catch {
+    // Session storage can be unavailable in private or restricted browser modes.
+  }
+}
+
 let accessToken = null
-let currentUser = null
+let currentUser = readStoredUser()
+let isInitializing = Boolean(currentUser)
 const listeners = new Set()
 
 function decodeJwtPayload(token) {
@@ -25,7 +53,31 @@ function decodeJwtPayload(token) {
 }
 
 function normalizeUser(user, token) {
-  return user || decodeJwtPayload(token)
+  const decodedUser = decodeJwtPayload(token)
+
+  if (user) {
+    return {
+      ...decodedUser,
+      ...user,
+    }
+  }
+
+  if (!currentUser) return decodedUser
+  if (!decodedUser) return currentUser
+
+  const isSameUser =
+    !decodedUser.id ||
+    !currentUser.id ||
+    decodedUser.id === currentUser.id ||
+    decodedUser.email === currentUser.email
+
+  if (!isSameUser) return decodedUser
+
+  return {
+    ...decodedUser,
+    ...currentUser,
+    roles: decodedUser.roles || currentUser.roles,
+  }
 }
 
 function notifyListeners() {
@@ -48,7 +100,8 @@ export const tokenStorage = {
   getSnapshot() {
     return {
       accessToken,
-      isAuthenticated: Boolean(accessToken),
+      isAuthenticated: Boolean(accessToken || currentUser),
+      isInitializing,
       user: currentUser,
     }
   },
@@ -56,12 +109,21 @@ export const tokenStorage = {
   setAccessToken(token, user) {
     accessToken = token || null
     currentUser = accessToken ? normalizeUser(user, accessToken) : null
+    isInitializing = false
+    storeUser(currentUser)
     notifyListeners()
   },
 
   clearAccessToken() {
     accessToken = null
     currentUser = null
+    isInitializing = false
+    storeUser(null)
+    notifyListeners()
+  },
+
+  setInitializing(value) {
+    isInitializing = Boolean(value)
     notifyListeners()
   },
 

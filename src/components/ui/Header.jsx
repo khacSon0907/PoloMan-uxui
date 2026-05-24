@@ -22,6 +22,7 @@ function Header() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const user = authSnapshot.user
+  const isAuthInitializing = authSnapshot.isInitializing
 
   const isActive = (path) => location.pathname === path
 
@@ -157,7 +158,7 @@ function Header() {
                 <button
                   type="button"
                   onClick={() => setAccountMenuOpen((isOpen) => !isOpen)}
-                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 text-sm font-semibold text-neutral-900 hover:border-black transition-colors"
+                  className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 text-sm font-semibold text-neutral-900 hover:border-black transition-colors"
                   aria-label="Tài khoản"
                   aria-expanded={accountMenuOpen}
                 >
@@ -165,6 +166,9 @@ function Header() {
                     <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     getInitial(user)
+                  )}
+                  {isAuthInitializing && (
+                    <span className="absolute inset-0 rounded-full border-2 border-neutral-300 border-t-black animate-spin" />
                   )}
                 </button>
 
@@ -206,6 +210,13 @@ function Header() {
                   </div>
                 )}
               </div>
+            ) : isAuthInitializing ? (
+              <span
+                className="hidden sm:flex h-10 w-10 items-center justify-center"
+                aria-label="Dang tai tai khoan"
+              >
+                <span className="h-6 w-6 rounded-full border-2 border-neutral-300 border-t-black animate-spin" />
+              </span>
             ) : (
               <Link
                 to="/login"

@@ -1,8 +1,80 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+
+import { categoryApi } from '../features/category'
+import { usePageMeta } from '../shared/hooks/usePageMeta'
+
+const fallbackCategories = [
+  { id: 'polo', name: 'Áo Polo', slug: 'polo', active: true },
+  { id: 'shirt', name: 'Áo Sơ Mi', slug: 'shirt', active: true },
+  { id: 'trouser', name: 'Quần Nam', slug: 'trouser', active: true },
+  { id: 'accessory', name: 'Phụ kiện', slug: 'accessory', active: true },
+]
+
+function matchesCategory(productCategory, selectedCategory) {
+  if (selectedCategory === 'all') return true
+
+  const normalizedSelected = selectedCategory.toLowerCase()
+  const aliasMap = {
+    'ao-polo': 'polo',
+    'ao-so-mi': 'shirt',
+    'quan-nam': 'trouser',
+    'quan-khaki': 'trouser',
+    'phu-kien': 'accessory',
+  }
+
+  return productCategory === (aliasMap[normalizedSelected] || normalizedSelected)
+}
 
 function Products() {
-  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedSize, setSelectedSize] = useState('all')
+  const [categories, setCategories] = useState(fallbackCategories)
+  const selectedCategory = searchParams.get('category') || 'all'
+
+  usePageMeta({
+    title: 'Danh sách sản phẩm PoloMan | Áo polo, sơ mi, quần nam',
+    description:
+      'Khám phá danh sách sản phẩm thời trang nam PoloMan theo danh mục, kích thước và phong cách hiện đại.',
+    canonicalPath: '/products',
+  })
+
+  useEffect(() => {
+    let isMounted = true
+
+    categoryApi
+      .list()
+      .then((list) => {
+        if (!isMounted || !Array.isArray(list) || !list.length) return
+        setCategories(list.filter((category) => category.active !== false))
+      })
+      .catch(() => {
+        if (isMounted) setCategories(fallbackCategories)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const categoryOptions = useMemo(
+    () => [
+      { id: 'all', name: 'Tất cả' },
+      ...(categories.length ? categories : fallbackCategories).map((category) => ({
+        id: category.slug || category.id || category.name,
+        name: category.name,
+      })),
+    ],
+    [categories],
+  )
+
+  const handleCategoryChange = (categoryId) => {
+    if (categoryId === 'all') {
+      setSearchParams({})
+      return
+    }
+    setSearchParams({ category: categoryId })
+  }
 
   const productsList = [
     { id: 1, name: 'Áo Polo Signature Cotton Pima', price: 380000, category: 'polo', size: 'M', image: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=400&auto=format&fit=crop' },
@@ -17,7 +89,7 @@ function Products() {
 
   // Filter Logic
   const filteredProducts = productsList.filter(prod => {
-    const categoryMatch = selectedCategory === 'all' || prod.category === selectedCategory
+    const categoryMatch = matchesCategory(prod.category, selectedCategory)
     const sizeMatch = selectedSize === 'all' || prod.size === selectedSize || prod.size === 'all'
     return categoryMatch && sizeMatch
   })
@@ -40,16 +112,10 @@ function Products() {
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-neutral-950 uppercase tracking-widest">Danh mục</h3>
               <div className="space-y-1.5">
-                {[
-                  { id: 'all', name: 'Tất cả' },
-                  { id: 'polo', name: 'Áo Polo' },
-                  { id: 'shirt', name: 'Áo Sơ Mi' },
-                  { id: 'trouser', name: 'Quần Nam' },
-                  { id: 'accessory', name: 'Phụ kiện' },
-                ].map(cat => (
+                {categoryOptions.map(cat => (
                   <button
                     key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
+                    onClick={() => handleCategoryChange(cat.id)}
                     className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${selectedCategory === cat.id
                         ? 'bg-black text-white font-bold'
                         : 'text-neutral-600 hover:bg-neutral-200 hover:text-black'

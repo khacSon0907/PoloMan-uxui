@@ -1,6 +1,56 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { categoryApi } from '../features/category'
+import { usePageMeta } from '../shared/hooks/usePageMeta'
+
+const fallbackCategories = [
+  { id: 'polo', name: 'Áo Polo', slug: 'ao-polo', description: 'Phong cách lịch lãm cho mỗi ngày.', active: true },
+  { id: 'shirt', name: 'Áo Sơ Mi', slug: 'ao-so-mi', description: 'Form gọn, chất liệu thoáng mát.', active: true },
+  { id: 'trouser', name: 'Quần Nam', slug: 'quan-nam', description: 'Dễ phối, đứng phom, hiện đại.', active: true },
+  { id: 'accessory', name: 'Phụ Kiện', slug: 'phu-kien', description: 'Điểm nhấn hoàn thiện outfit.', active: true },
+]
+
+const categoryImages = [
+  'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=300&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=300&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=300&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1622434641406-a158123450f9?q=80&w=300&auto=format&fit=crop',
+]
+
 function Home() {
+  const [categories, setCategories] = useState(fallbackCategories)
+
+  usePageMeta({
+    title: 'PoloMan Store | Thời trang nam cao cấp',
+    description:
+      'PoloMan Store cung cấp áo polo, áo sơ mi, quần nam và phụ kiện thời trang nam cao cấp với phong cách hiện đại.',
+    canonicalPath: '/',
+  })
+
+  useEffect(() => {
+    let isMounted = true
+
+    categoryApi
+      .list()
+      .then((list) => {
+        if (!isMounted || !Array.isArray(list) || !list.length) return
+        setCategories(list.filter((category) => category.active !== false))
+      })
+      .catch(() => {
+        if (isMounted) setCategories(fallbackCategories)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const visibleCategories = useMemo(
+    () => (categories.length ? categories.slice(0, 4) : fallbackCategories),
+    [categories],
+  )
+
   const featuredProducts = [
     {
       id: 1,
@@ -93,23 +143,22 @@ function Home() {
           <p className="text-xs text-neutral-400">Thiết kế tối giản, tôn vinh bản sắc phái mạnh</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {[
-            { name: 'Áo Polo', items: '24 sản phẩm', img: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=200&auto=format&fit=crop' },
-            { name: 'Áo Sơ Mi', items: '18 sản phẩm', img: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=200&auto=format&fit=crop' },
-            { name: 'Quần Khaki', items: '15 sản phẩm', img: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=200&auto=format&fit=crop' },
-            { name: 'Phụ Kiện', items: '12 sản phẩm', img: 'https://images.unsplash.com/photo-1622434641406-a158123450f9?q=80&w=200&auto=format&fit=crop' },
-          ].map((cat, idx) => (
-            <div key={idx} className="group relative p-6 rounded-xl bg-neutral-50 border border-neutral-200 hover:border-black transition-all overflow-hidden flex flex-col justify-between h-44 cursor-pointer">
+          {visibleCategories.map((cat, idx) => (
+            <Link
+              key={cat.id || cat.slug || cat.name}
+              to={`/products?category=${cat.slug || cat.id || 'all'}`}
+              className="group relative p-6 rounded-xl bg-[linear-gradient(135deg,#fff7ed_0%,#fdf2f8_45%,#eef2ff_100%)] border border-pink-100 hover:border-fuchsia-500 transition-all overflow-hidden flex flex-col justify-between h-44 cursor-pointer"
+            >
               <div className="z-10 space-y-0.5">
                 <h3 className="text-lg font-extrabold text-neutral-900 group-hover:text-black transition-colors uppercase tracking-tight">{cat.name}</h3>
-                <p className="text-[10px] text-neutral-400 font-semibold">{cat.items}</p>
+                <p className="text-[10px] text-fuchsia-600 font-semibold">{cat.description || 'Khám phá bộ sưu tập'}</p>
               </div>
               <img
-                src={cat.img}
+                src={categoryImages[idx % categoryImages.length]}
                 alt={cat.name}
                 className="absolute -right-4 -bottom-4 w-24 h-24 object-cover rounded-md opacity-60 group-hover:scale-105 group-hover:opacity-100 transition-all -rotate-12 grayscale group-hover:grayscale-0"
               />
-            </div>
+            </Link>
           ))}
         </div>
       </section>

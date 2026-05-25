@@ -4,6 +4,7 @@ import AdminLayout from '../layouts/AdminLayout'
 import MainLayout from '../layouts/MainLayout'
 import ProtectedRoute from './ProtectedRoute'
 
+import AdminCategories from '../../pages/admin/AdminCategories'
 import AdminDashboard from '../../pages/admin/AdminDashboard'
 import AdminPlaceholder from '../../pages/admin/AdminPlaceholder'
 import Home from '../../pages/Home'
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <AdminDashboard />,
+          },
+          {
+            path: 'categories',
+            element: <AdminCategories />,
           },
           {
             path: 'products',

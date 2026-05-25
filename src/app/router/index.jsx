@@ -1,7 +1,11 @@
 import { createBrowserRouter } from 'react-router-dom'
 
+import AdminLayout from '../layouts/AdminLayout'
 import MainLayout from '../layouts/MainLayout'
+import ProtectedRoute from './ProtectedRoute'
 
+import AdminDashboard from '../../pages/admin/AdminDashboard'
+import AdminPlaceholder from '../../pages/admin/AdminPlaceholder'
 import Home from '../../pages/Home'
 import Products from '../../pages/Products'
 import Login from '../../pages/Login'
@@ -37,6 +41,35 @@ export const router = createBrowserRouter([
       {
         path: 'change-password',
         element: <ChangePassword />,
+      },
+    ],
+  },
+
+  // ADMIN WEBSITE
+  {
+    element: <ProtectedRoute requiredRole="ADMIN" />,
+    children: [
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        children: [
+          {
+            index: true,
+            element: <AdminDashboard />,
+          },
+          {
+            path: 'products',
+            element: <AdminPlaceholder title="Quan ly san pham" />,
+          },
+          {
+            path: 'orders',
+            element: <AdminPlaceholder title="Quan ly don hang" />,
+          },
+          {
+            path: 'users',
+            element: <AdminPlaceholder title="Quan ly khach hang" />,
+          },
+        ],
       },
     ],
   },

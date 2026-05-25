@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
-import { tokenStorage } from '../../shared/api'
+import { hasRole, tokenStorage } from '../../shared/api'
 
 function getDisplayName(user) {
   return user?.username || user?.fullName || user?.name || user?.email || 'Tài khoản'
@@ -23,6 +23,7 @@ function Header() {
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const user = authSnapshot.user
   const isAuthInitializing = authSnapshot.isInitializing
+  const isAdmin = hasRole(user, 'ADMIN')
 
   const isActive = (path) => location.pathname === path
 
@@ -206,6 +207,15 @@ function Header() {
                     >
                       Đổi mật khẩu
                     </Link>
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="block px-4 py-2.5 text-sm font-semibold text-neutral-900 hover:bg-neutral-50 hover:text-black"
+                      >
+                        Quản trị
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -251,14 +261,19 @@ function Header() {
           <Link to="/collections" onClick={() => setMobileMenuOpen(false)} className={isActive('/collections') ? 'text-black' : ''}>Bộ sưu tập</Link>
           <Link to="/about" onClick={() => setMobileMenuOpen(false)} className={isActive('/about') ? 'text-black' : ''}>Về chúng tôi</Link>
           {authSnapshot.isAuthenticated ? (
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="text-left text-red-600 disabled:opacity-60"
-            >
-              {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
-            </button>
+            <>
+              {isAdmin && (
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className={isActive('/admin') ? 'text-black' : ''}>Quản trị</Link>
+              )}
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="text-left text-red-600 disabled:opacity-60"
+              >
+                {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+              </button>
+            </>
           ) : (
             <Link to="/login" onClick={() => setMobileMenuOpen(false)} className={isActive('/login') ? 'text-black' : ''}>Đăng nhập</Link>
           )}

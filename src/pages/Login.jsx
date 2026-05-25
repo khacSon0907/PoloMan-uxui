@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
-import { getApiMessage } from '../shared/api'
+import { getApiMessage, hasRole, tokenStorage } from '../shared/api'
 import { authApi } from '../features/auth'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -44,7 +44,13 @@ function Login() {
 
     try {
       await authApi.login(payload)
-      navigate('/')
+      const loggedInUser = tokenStorage.getUser()
+      const fromPath = location.state?.from?.pathname
+      const shouldReturnToUserPath = fromPath && !fromPath.startsWith('/admin')
+
+      navigate(hasRole(loggedInUser, 'ADMIN') ? '/admin' : shouldReturnToUserPath ? fromPath : '/', {
+        replace: true,
+      })
     } catch (error) {
       setErrorMessage(getApiMessage(error, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'))
     } finally {

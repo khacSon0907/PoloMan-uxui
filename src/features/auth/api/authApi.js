@@ -4,7 +4,7 @@ function persistLoginTokens(response) {
   const loginData = getApiData(response)
   tokenStorage.setAccessToken(
     loginData?.accessToken,
-    loginData?.user || loginData?.account || loginData?.profile,
+    loginData?.user || loginData?.account || loginData?.profile || loginData,
   )
   return response
 }

@@ -30,6 +30,38 @@ let currentUser = readStoredUser()
 let isInitializing = Boolean(currentUser)
 const listeners = new Set()
 
+export function normalizeRoles(roles) {
+  if (!roles) return []
+
+  if (roles instanceof Set) {
+    return Array.from(roles).map(String).filter(Boolean)
+  }
+
+  if (Array.isArray(roles)) {
+    return roles.map(String).filter(Boolean)
+  }
+
+  if (typeof roles === 'string') {
+    return roles
+      .split(',')
+      .map((role) => role.trim())
+      .filter(Boolean)
+  }
+
+  if (typeof roles === 'object') {
+    return Object.values(roles).map(String).filter(Boolean)
+  }
+
+  return []
+}
+
+export function hasRole(user, role) {
+  const expectedRole = String(role).toUpperCase()
+  return normalizeRoles(user?.roles || user?.role).some(
+    (userRole) => userRole.toUpperCase() === expectedRole,
+  )
+}
+
 function decodeJwtPayload(token) {
   if (!token) return null
 
@@ -45,7 +77,9 @@ function decodeJwtPayload(token) {
       email: decodedPayload.email || decodedPayload.sub || '',
       username: decodedPayload.username || decodedPayload.name || decodedPayload.fullName || '',
       avatarUrl: decodedPayload.avatarUrl || decodedPayload.avatar || decodedPayload.picture || '',
-      roles: decodedPayload.roles || decodedPayload.authorities || [],
+      roles: normalizeRoles(
+        decodedPayload.roles || decodedPayload.role || decodedPayload.authorities,
+      ),
     }
   } catch {
     return null
@@ -54,13 +88,15 @@ function decodeJwtPayload(token) {
 
 function normalizeUser(user, token) {
   const decodedUser = decodeJwtPayload(token)
+  const mergedUser = user
+    ? {
+        ...decodedUser,
+        ...user,
+        roles: normalizeRoles(user.roles || user.role || decodedUser?.roles),
+      }
+    : null
 
-  if (user) {
-    return {
-      ...decodedUser,
-      ...user,
-    }
-  }
+  if (mergedUser) return mergedUser
 
   if (!currentUser) return decodedUser
   if (!decodedUser) return currentUser
@@ -76,7 +112,7 @@ function normalizeUser(user, token) {
   return {
     ...decodedUser,
     ...currentUser,
-    roles: decodedUser.roles || currentUser.roles,
+    roles: normalizeRoles(decodedUser.roles || currentUser.roles || currentUser.role),
   }
 }
 

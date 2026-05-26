@@ -95,28 +95,28 @@ function Products() {
   })
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header Banner */}
-      <div className="p-8 bg-neutral-950 border border-neutral-900 rounded-2xl relative overflow-hidden">
-        <h1 className="text-2xl font-black text-white uppercase tracking-widest">Danh sách sản phẩm</h1>
-        <p className="text-xs text-neutral-400 mt-1 max-w-lg">Tổng hợp tất cả thiết kế tối giản, tuyển chọn cao cấp giúp nâng tầm phong thái của bạn.</p>
+      <div className="relative overflow-hidden rounded-lg border border-neutral-900 bg-neutral-950 p-5 sm:p-8">
+        <h1 className="text-xl font-black uppercase tracking-[0.14em] text-white sm:text-2xl sm:tracking-widest">Danh sách sản phẩm</h1>
+        <p className="mt-2 max-w-lg text-xs leading-5 text-neutral-400">Tổng hợp tất cả thiết kế tối giản, tuyển chọn cao cấp giúp nâng tầm phong thái của bạn.</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
 
         {/* SIDEBAR FILTERS */}
-        <aside className="w-full lg:w-64 space-y-6 flex-shrink-0">
-          <div className="p-6 bg-neutral-50 border border-neutral-200 rounded-xl space-y-6">
+        <aside className="w-full flex-shrink-0 space-y-6 lg:w-64">
+          <div className="space-y-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4 sm:p-5 lg:p-6">
 
             {/* Category Filter */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-neutral-950 uppercase tracking-widest">Danh mục</h3>
-              <div className="space-y-1.5">
+              <div className="scrollbar-hidden -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:block lg:space-y-1.5 lg:overflow-visible lg:px-0 lg:pb-0">
                 {categoryOptions.map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => handleCategoryChange(cat.id)}
-                    className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${selectedCategory === cat.id
+                    className={`flex shrink-0 cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-left text-xs font-semibold transition-all lg:w-full lg:py-1.5 ${selectedCategory === cat.id
                         ? 'bg-black text-white font-bold'
                         : 'text-neutral-600 hover:bg-neutral-200 hover:text-black'
                       }`}
@@ -158,10 +158,10 @@ function Products() {
           </div>
 
           {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 lg:gap-6">
               {filteredProducts.map(prod => (
-                <div key={prod.id} className="group bg-white border border-neutral-200 rounded-xl overflow-hidden hover:border-neutral-400 transition-all flex flex-col h-full relative">
-                  <div className="h-60 overflow-hidden relative bg-neutral-100">
+                <div key={prod.id} className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white transition-all hover:border-neutral-400">
+                  <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 sm:h-60 sm:aspect-auto">
                     <img
                       src={prod.image}
                       alt={prod.name}
@@ -186,7 +186,7 @@ function Products() {
               ))}
             </div>
           ) : (
-            <div className="p-12 text-center bg-neutral-50 border border-neutral-200 rounded-xl">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center sm:p-12">
               <span className="text-3xl">🔍</span>
               <h3 className="text-sm font-bold text-neutral-800 mt-4">Không tìm thấy sản phẩm</h3>
               <p className="text-xs text-neutral-500 mt-1">Vui lòng thử bộ lọc khác.</p>

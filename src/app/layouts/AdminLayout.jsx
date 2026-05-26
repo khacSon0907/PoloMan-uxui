@@ -72,16 +72,16 @@ function AdminLayout() {
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur">
-          <div className="flex min-h-16 flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-            <div>
+          <div className="flex min-h-16 flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-8">
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
                 Quan tri he thong
               </p>
-              <h1 className="mt-1 text-xl font-semibold text-neutral-950">Bang dieu khien</h1>
+              <h1 className="mt-1 truncate text-xl font-semibold text-neutral-950">Bang dieu khien</h1>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 text-right">
+            <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-3">
+              <div className="min-w-0 text-left sm:text-right">
                 <p className="truncate text-sm font-semibold text-neutral-950">{getDisplayName(user)}</p>
                 {user?.email && <p className="truncate text-xs text-neutral-500">{user.email}</p>}
               </div>
@@ -94,14 +94,14 @@ function AdminLayout() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="h-10 rounded-md bg-black px-4 text-sm font-semibold text-white hover:bg-neutral-800"
+                className="h-10 shrink-0 rounded-md bg-black px-3 text-sm font-semibold text-white hover:bg-neutral-800 sm:px-4"
               >
                 Dang xuat
               </button>
             </div>
           </div>
 
-          <nav className="flex gap-2 overflow-x-auto border-t border-neutral-100 px-5 py-3 lg:hidden">
+          <nav className="scrollbar-hidden flex gap-2 overflow-x-auto border-t border-neutral-100 px-4 py-3 sm:px-5 lg:hidden">
             {adminNavItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -119,7 +119,7 @@ function AdminLayout() {
           </nav>
         </header>
 
-        <main className="px-5 py-6 lg:px-8">
+        <main className="px-4 py-5 sm:px-5 sm:py-6 lg:px-8">
           <Outlet />
         </main>
       </div>

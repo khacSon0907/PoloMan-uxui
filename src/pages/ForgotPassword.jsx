@@ -195,12 +195,12 @@ function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 sm:py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <Link
             to="/"
-            className="text-4xl font-light tracking-[0.35em] text-black uppercase hover:opacity-75 transition-all duration-300 inline-block"
+            className="inline-block text-3xl font-light uppercase tracking-[0.22em] text-black transition-all duration-300 hover:opacity-75 sm:text-4xl sm:tracking-[0.35em]"
           >
             POLOMAN
           </Link>
@@ -356,7 +356,7 @@ function ForgotPassword() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 bg-black text-white text-sm font-semibold uppercase tracking-widest rounded-lg hover:bg-neutral-800 active:scale-[0.98] transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-black text-sm font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-widest"
           >
             {isLoading ? (
               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">

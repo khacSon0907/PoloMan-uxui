@@ -6,12 +6,12 @@ function MainLayout({ children }) {
     <div className="flex flex-col min-h-screen bg-white text-neutral-900 font-sans antialiased">
       <Header />
 
-      <main className="flex-grow max-w-[1500px] w-full mx-auto px-6 lg:px-10 py-8">
+      <main className="flex-grow w-full max-w-[1500px] mx-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8">
         {children || <Outlet />}
       </main>
 
       <footer className="bg-neutral-50 border-t border-neutral-200 text-neutral-600 text-sm mt-auto">
-        <div className="max-w-[1500px] mx-auto px-6 lg:px-10 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="max-w-[1500px] mx-auto grid grid-cols-1 gap-8 px-4 py-10 sm:px-6 sm:py-12 md:grid-cols-2 lg:grid-cols-4 lg:px-10 lg:py-16 lg:gap-12">
           
           <div className="space-y-4">
             <h3 className="text-xl font-bold tracking-tight text-neutral-950">
@@ -70,13 +70,13 @@ function MainLayout({ children }) {
               Nhận thông báo bộ sưu tập mới và ưu đãi đặc quyền sớm nhất từ PoloMan.
             </p>
 
-            <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
+            <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(e) => e.preventDefault()}>
               <input
                 type="email"
                 placeholder="Email của bạn..."
-                className="flex-grow h-10 px-3 rounded bg-white border border-neutral-200 text-sm text-neutral-800 placeholder-neutral-400 outline-none focus:border-black transition-all"
+                className="h-10 min-w-0 flex-grow rounded bg-white border border-neutral-200 px-3 text-sm text-neutral-800 placeholder-neutral-400 outline-none focus:border-black transition-all"
               />
-              <button className="h-10 px-5 rounded bg-black hover:bg-neutral-800 text-white font-bold text-sm transition-all cursor-pointer">
+              <button className="h-10 rounded bg-black px-5 text-sm font-bold text-white transition-all hover:bg-neutral-800 cursor-pointer">
                 Đăng ký
               </button>
             </form>
@@ -84,10 +84,10 @@ function MainLayout({ children }) {
         </div>
 
         <div className="border-t border-neutral-200 bg-neutral-100 py-6 text-center text-sm text-neutral-500">
-          <div className="max-w-[1500px] mx-auto px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="max-w-[1500px] mx-auto flex flex-col items-center justify-between gap-4 px-4 sm:px-6 md:flex-row lg:px-10">
             <p>© {new Date().getFullYear()} PoloMan. Tất cả bản quyền được bảo lưu.</p>
 
-            <div className="flex items-center gap-4 text-neutral-400">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-neutral-400 sm:gap-4">
               <a href="/privacy" className="hover:text-black">Chính sách bảo mật</a>
               <span>•</span>
               <a href="/terms" className="hover:text-black">Điều khoản dịch vụ</a>

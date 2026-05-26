@@ -84,22 +84,22 @@ function Home() {
   ]
 
   return (
-    <div className="space-y-20 pb-12">
+    <div className="space-y-12 pb-8 sm:space-y-16 sm:pb-10 lg:space-y-20 lg:pb-12">
       {/* 1. HERO SECTION (HIGH-CONTRAST MONOCHROME BANNER) */}
-      <section className="relative rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-900">
-        <div className="max-w-5xl mx-auto px-6 py-20 md:py-28 flex flex-col md:flex-row items-center gap-12">
-          <div className="flex-1 space-y-6 text-center md:text-left">
+      <section className="relative overflow-hidden rounded-lg border border-neutral-900 bg-neutral-950 sm:rounded-xl">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 md:flex-row md:gap-10 lg:gap-12 lg:py-24">
+          <div className="flex-1 space-y-5 text-center md:text-left lg:space-y-6">
             <span className="inline-flex px-3 py-1 bg-white/10 text-white border border-white/20 rounded-md text-xs font-bold uppercase tracking-widest">
               BST MÙA HÈ 2026
             </span>
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight text-white uppercase font-sans">
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white uppercase font-sans sm:text-4xl lg:text-6xl">
               NÂNG TẦM <br />
               <span className="text-neutral-400">PHONG THÁI</span>
             </h1>
-            <p className="text-neutral-400 text-sm max-w-sm mx-auto md:mx-0 leading-relaxed">
+            <p className="mx-auto max-w-sm text-sm leading-relaxed text-neutral-400 md:mx-0">
               Khám phá các thiết kế tối giản, tinh tế hàng đầu. Chất liệu cao cấp chuẩn phom tôn dáng thời thượng cho quý ông hiện đại.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 pt-2">
+            <div className="flex flex-col items-stretch justify-center gap-3 pt-1 sm:flex-row sm:items-center md:justify-start">
               <Link to="/products" className="w-full sm:w-auto px-8 py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-bold rounded-md hover:scale-[1.02] active:scale-[0.98] transition-all text-center text-xs tracking-wider uppercase cursor-pointer">
                 Mua Ngay
               </Link>
@@ -108,26 +108,26 @@ function Home() {
               </Link>
             </div>
           </div>
-          <div className="flex-1 w-full max-w-sm md:max-w-none">
+          <div className="w-full max-w-sm flex-1 md:max-w-none">
             <img
               src="https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=600&auto=format&fit=crop"
               alt="PoloMan Hero"
-              className="w-full h-[380px] object-cover rounded-md border border-neutral-800 shadow-2xl grayscale hover:grayscale-0 transition-all duration-700"
+              className="aspect-[4/5] h-auto max-h-[420px] w-full rounded-md border border-neutral-800 object-cover shadow-2xl grayscale transition-all duration-700 hover:grayscale-0 sm:aspect-[5/4] md:aspect-[4/5]"
             />
           </div>
         </div>
       </section>
 
       {/* 2. VALUE PROPOSITIONS */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+      <section className="mx-auto grid max-w-7xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         {[
           { icon: '🚚', title: 'Miễn Phí Vận Chuyển', desc: 'Đơn hàng từ 499.000đ toàn quốc' },
           { icon: '🔄', title: 'Đổi Trả Dễ Dàng', desc: 'Hỗ trợ đổi trả trong vòng 30 ngày' },
           { icon: '✨', title: 'Chất Liệu Cao Cấp', desc: 'Quy trình kiểm định chất lượng chặt chẽ' },
           { icon: '💬', title: 'Hỗ Trợ Tận Tâm', desc: 'Đội ngũ chăm sóc khách hàng 24/7' },
         ].map((item, idx) => (
-          <div key={idx} className="p-6 bg-neutral-50 border border-neutral-200 rounded-xl hover:border-neutral-400 transition-all flex items-center gap-4">
-            <span className="text-2xl p-2.5 bg-white border border-neutral-100 rounded-lg">{item.icon}</span>
+          <div key={idx} className="flex items-center gap-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4 transition-all hover:border-neutral-400 sm:p-5 lg:p-6">
+            <span className="shrink-0 rounded-md border border-neutral-100 bg-white p-2.5 text-2xl">{item.icon}</span>
             <div>
               <h3 className="font-bold text-neutral-800 text-sm">{item.title}</h3>
               <p className="text-[11px] text-neutral-500 mt-0.5">{item.desc}</p>
@@ -142,21 +142,21 @@ function Home() {
           <h2 className="text-2xl font-black text-neutral-900 uppercase tracking-widest">Danh mục nổi bật</h2>
           <p className="text-xs text-neutral-400">Thiết kế tối giản, tôn vinh bản sắc phái mạnh</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 lg:gap-6">
           {visibleCategories.map((cat, idx) => (
             <Link
               key={cat.id || cat.slug || cat.name}
               to={`/products?category=${cat.slug || cat.id || 'all'}`}
-              className="group relative p-6 rounded-xl bg-[linear-gradient(135deg,#fff7ed_0%,#fdf2f8_45%,#eef2ff_100%)] border border-pink-100 hover:border-fuchsia-500 transition-all overflow-hidden flex flex-col justify-between h-44 cursor-pointer"
+              className="group relative flex min-h-36 cursor-pointer flex-col justify-between overflow-hidden rounded-lg border border-pink-100 bg-[linear-gradient(135deg,#fff7ed_0%,#fdf2f8_45%,#eef2ff_100%)] p-5 transition-all hover:border-fuchsia-500 sm:h-44 sm:p-6"
             >
               <div className="z-10 space-y-0.5">
-                <h3 className="text-lg font-extrabold text-neutral-900 group-hover:text-black transition-colors uppercase tracking-tight">{cat.name}</h3>
+                <h3 className="text-base font-extrabold uppercase tracking-tight text-neutral-900 transition-colors group-hover:text-black sm:text-lg">{cat.name}</h3>
                 <p className="text-[10px] text-fuchsia-600 font-semibold">{cat.description || 'Khám phá bộ sưu tập'}</p>
               </div>
               <img
                 src={categoryImages[idx % categoryImages.length]}
                 alt={cat.name}
-                className="absolute -right-4 -bottom-4 w-24 h-24 object-cover rounded-md opacity-60 group-hover:scale-105 group-hover:opacity-100 transition-all -rotate-12 grayscale group-hover:grayscale-0"
+                className="absolute -right-4 -bottom-4 h-24 w-24 rounded-md object-cover opacity-60 -rotate-12 grayscale transition-all group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"
               />
             </Link>
           ))}
@@ -176,15 +176,15 @@ function Home() {
           </Link>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           {featuredProducts.map((prod) => (
-            <div key={prod.id} className="group bg-white border border-neutral-200 rounded-xl overflow-hidden hover:border-neutral-400 transition-all flex flex-col h-full relative">
+            <div key={prod.id} className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white transition-all hover:border-neutral-400">
               {prod.tag && (
                 <span className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black text-[9px] font-bold text-white uppercase rounded tracking-wider">
                   {prod.tag}
                 </span>
               )}
-              <div className="h-64 overflow-hidden relative bg-neutral-100">
+              <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 sm:h-64 sm:aspect-auto">
                 <img
                   src={prod.image}
                   alt={prod.name}

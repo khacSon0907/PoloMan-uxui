@@ -107,10 +107,10 @@ function ChangePassword() {
   }
 
   return (
-    <div className="py-8">
-      <div className="mb-8 border-b border-neutral-200 pb-8">
+    <div className="py-5 sm:py-8">
+      <div className="mb-6 border-b border-neutral-200 pb-6 sm:mb-8 sm:pb-8">
         <p className="text-sm uppercase tracking-[0.18em] text-neutral-400">Bảo mật tài khoản</p>
-        <h1 className="mt-2 text-2xl font-semibold text-neutral-950">Đổi mật khẩu</h1>
+        <h1 className="mt-2 text-xl font-semibold text-neutral-950 sm:text-2xl">Đổi mật khẩu</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-md space-y-5" noValidate>
@@ -179,7 +179,7 @@ function ChangePassword() {
           <button
             type="submit"
             disabled={isLoading}
-            className="h-12 flex-1 rounded-lg bg-black px-6 text-sm font-semibold uppercase tracking-widest text-white transition-all duration-300 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
+            className="flex h-12 flex-1 items-center justify-center rounded-lg bg-black px-6 text-sm font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-widest"
           >
             {isLoading ? (
               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">

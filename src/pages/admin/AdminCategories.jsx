@@ -96,12 +96,12 @@ function AdminCategories() {
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-lg border border-fuchsia-200 bg-white">
-        <div className="grid gap-6 bg-[linear-gradient(135deg,#111827_0%,#7c3aed_48%,#f97316_100%)] p-6 text-white lg:grid-cols-[1fr_280px] lg:items-end">
+        <div className="grid gap-5 bg-[linear-gradient(135deg,#111827_0%,#7c3aed_48%,#f97316_100%)] p-5 text-white sm:p-6 lg:grid-cols-[1fr_280px] lg:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
               Category manager
             </p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight">Tao danh muc san pham</h2>
+            <h2 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">Tao danh muc san pham</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/75">
               Quan ly cac nhom san pham hien thi ngoai website. Danh muc active se duoc dua
               vao khu vuc noi bat va bo loc san pham.
@@ -119,7 +119,7 @@ function AdminCategories() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid gap-4 p-5 lg:grid-cols-[1fr_1fr_140px] lg:items-end">
+        <form onSubmit={handleSubmit} className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_1fr_140px] lg:items-end">
           <div>
             <label htmlFor="category-name" className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
               Ten danh muc
@@ -159,7 +159,7 @@ function AdminCategories() {
             />
           </div>
 
-          <div className="lg:col-span-3 flex flex-col gap-3 border-t border-neutral-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-neutral-100 pt-4 sm:flex-row sm:items-center sm:justify-between lg:col-span-3">
             <div className="min-h-5 text-sm">
               {errorMessage && <p className="font-medium text-red-600">{errorMessage}</p>}
               {successMessage && <p className="font-medium text-emerald-600">{successMessage}</p>}
@@ -167,7 +167,7 @@ function AdminCategories() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-11 rounded-md bg-neutral-950 px-5 text-sm font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-fuchsia-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-11 rounded-md bg-neutral-950 px-5 text-sm font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-fuchsia-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSubmitting ? 'Dang tao...' : 'Tao danh muc'}
             </button>
@@ -176,12 +176,12 @@ function AdminCategories() {
       </section>
 
       <section className="rounded-lg border border-neutral-200 bg-white">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+        <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <h2 className="text-lg font-semibold text-neutral-950">Danh sach danh muc</h2>
           <button
             type="button"
             onClick={loadCategories}
-            className="rounded-md border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-600 hover:border-black hover:text-black"
+            className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-600 hover:border-black hover:text-black sm:w-auto"
           >
             Tai lai
           </button>
@@ -196,12 +196,12 @@ function AdminCategories() {
             {categories.map((category, index) => (
               <article
                 key={category.id || category.slug || category.name}
-                className="grid gap-4 px-5 py-4 md:grid-cols-[56px_1fr_140px_100px] md:items-center"
+                className="grid gap-3 px-4 py-4 sm:grid-cols-[56px_1fr] sm:gap-4 sm:px-5 lg:grid-cols-[56px_1fr_140px_100px] lg:items-center"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[linear-gradient(135deg,#f97316,#ec4899,#6366f1)] text-lg font-black text-white">
+                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[linear-gradient(135deg,#f97316,#ec4899,#6366f1)] text-lg font-black text-white sm:h-12 sm:w-12">
                   {index + 1}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-semibold text-neutral-950">{category.name}</h3>
                   <p className="mt-1 text-sm text-neutral-500">
                     {category.description || 'Chua co mo ta'}
@@ -210,10 +210,10 @@ function AdminCategories() {
                     <p className="mt-1 text-xs font-semibold text-fuchsia-600">/{category.slug}</p>
                   )}
                 </div>
-                <span className="w-fit rounded-full border border-neutral-200 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">
+                <span className="w-fit rounded-full border border-neutral-200 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-neutral-500 sm:col-start-2 lg:col-start-auto">
                   {category.active === false ? 'An' : 'Dang hien'}
                 </span>
-                <span className="text-sm font-semibold text-neutral-400 md:text-right">
+                <span className="text-sm font-semibold text-neutral-400 sm:col-start-2 lg:col-start-auto lg:text-right">
                   {category.id?.slice?.(-6) || 'new'}
                 </span>
               </article>

@@ -21,13 +21,13 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-neutral-200 bg-white p-5">
+      <section className="rounded-lg border border-neutral-200 bg-white p-4 sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
               Xin chao
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-neutral-950">
+            <h2 className="mt-2 break-words text-xl font-semibold text-neutral-950 sm:text-2xl">
               {user?.username || user?.email || 'Admin'}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-500">
@@ -35,7 +35,7 @@ function AdminDashboard() {
               quay lai website chinh bang nut Website.
             </p>
           </div>
-          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 md:min-w-52">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">Roles</p>
             <p className="mt-1 text-sm font-semibold text-neutral-950">
               {roles.length ? roles.join(', ') : 'Chua co role'}
@@ -46,7 +46,7 @@ function AdminDashboard() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <article key={metric.label} className="rounded-lg border border-neutral-200 bg-white p-5">
+          <article key={metric.label} className="rounded-lg border border-neutral-200 bg-white p-4 sm:p-5">
             <p className="text-sm font-medium text-neutral-500">{metric.label}</p>
             <p className="mt-3 text-3xl font-semibold text-neutral-950">{metric.value}</p>
             <p className="mt-2 text-xs text-neutral-400">{metric.caption}</p>
@@ -62,14 +62,14 @@ function AdminDashboard() {
           {recentOrders.map((order) => (
             <div
               key={order.id}
-              className="grid gap-3 px-5 py-4 text-sm md:grid-cols-[150px_1fr_140px_150px] md:items-center"
+              className="grid gap-3 px-4 py-4 text-sm sm:px-5 lg:grid-cols-[150px_1fr_140px_150px] lg:items-center"
             >
               <p className="font-semibold text-neutral-950">#{order.id}</p>
               <p className="text-neutral-600">{order.customer}</p>
               <span className="w-fit rounded-full border border-neutral-200 px-3 py-1 text-xs font-semibold text-neutral-600">
                 {order.status}
               </span>
-              <p className="font-semibold text-neutral-950 md:text-right">{order.total}</p>
+              <p className="font-semibold text-neutral-950 lg:text-right">{order.total}</p>
             </div>
           ))}
         </div>

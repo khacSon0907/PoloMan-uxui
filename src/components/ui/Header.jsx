@@ -70,15 +70,15 @@ function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/95 backdrop-blur-md">
-      <div className="max-w-[1500px] mx-auto px-6 lg:px-10 h-24">
+      <div className="max-w-[1500px] mx-auto h-18 px-4 sm:h-20 sm:px-6 lg:h-24 lg:px-10">
         <div className="relative flex items-center justify-between h-full">
-          <div className="flex items-center min-w-0 pr-24">
+          <div className="flex min-w-0 flex-1 items-center pr-14 sm:pr-24 lg:pr-6">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-neutral-700 hover:text-black"
+              className="-ml-2 p-2 text-neutral-700 hover:text-black md:hidden"
               aria-label="Toggle Menu"
             >
-              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6 sm:h-7 sm:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -88,7 +88,7 @@ function Header() {
               </svg>
             </button>
 
-            <nav className="hidden md:flex items-center gap-7 text-[13px] font-semibold uppercase tracking-[0.18em] text-neutral-600 whitespace-nowrap">
+            <nav className="hidden items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-neutral-600 whitespace-nowrap md:flex xl:gap-7 xl:text-[13px] xl:tracking-[0.18em]">
               <Link to="/" className={navClass('/')}>Trang chủ</Link>
               <Link to="/products" className={navClass('/products')}>Sản phẩm</Link>
               <Link to="/collections" className={navClass('/collections')}>Bộ sưu tập</Link>
@@ -98,12 +98,12 @@ function Header() {
 
           <Link
             to="/"
-            className="absolute left-1/2 -translate-x-1/2 text-3xl md:text-5xl font-light tracking-[0.35em] text-black uppercase hover:opacity-75 transition-all duration-300 whitespace-nowrap"
+            className="absolute left-1/2 -translate-x-1/2 text-[1.65rem] font-light tracking-[0.2em] text-black uppercase whitespace-nowrap transition-all duration-300 hover:opacity-75 sm:text-3xl sm:tracking-[0.3em] lg:text-5xl lg:tracking-[0.35em]"
           >
             POLOMAN
           </Link>
 
-          <div className="flex items-center gap-4 pl-24">
+          <div className="flex flex-1 items-center justify-end gap-1.5 pl-14 sm:gap-3 sm:pl-24 lg:pl-6 xl:gap-4">
             <div className="relative hidden lg:block w-64">
               <input
                 type="text"
@@ -128,7 +128,7 @@ function Header() {
               </svg>
             </div>
 
-            <button className="hidden sm:block p-2 text-neutral-600 hover:text-black" aria-label="Favorites">
+            <button className="hidden p-2 text-neutral-600 hover:text-black sm:block" aria-label="Favorites">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -139,7 +139,7 @@ function Header() {
               </svg>
             </button>
 
-            <button className="p-2 text-neutral-600 hover:text-black relative" aria-label="Shopping Cart">
+            <button className="relative p-2 text-neutral-600 hover:text-black" aria-label="Shopping Cart">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -255,7 +255,7 @@ function Header() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-neutral-200 bg-white px-6 py-5 space-y-4 flex flex-col text-sm font-semibold uppercase tracking-[0.18em] text-neutral-700">
+        <div className="flex flex-col space-y-4 border-t border-neutral-200 bg-white px-4 py-5 text-sm font-semibold uppercase tracking-[0.14em] text-neutral-700 md:hidden">
           <Link to="/" onClick={() => setMobileMenuOpen(false)} className={isActive('/') ? 'text-black' : ''}>Trang chủ</Link>
           <Link to="/products" onClick={() => setMobileMenuOpen(false)} className={isActive('/products') ? 'text-black' : ''}>Sản phẩm</Link>
           <Link to="/collections" onClick={() => setMobileMenuOpen(false)} className={isActive('/collections') ? 'text-black' : ''}>Bộ sưu tập</Link>

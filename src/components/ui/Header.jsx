@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
-import { hasRole, tokenStorage } from '../../shared/api'
+import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
 
 function getDisplayName(user) {
   return user?.username || user?.fullName || user?.name || user?.email || 'Tài khoản'
@@ -24,6 +24,7 @@ function Header() {
   const user = authSnapshot.user
   const isAuthInitializing = authSnapshot.isInitializing
   const isAdmin = hasRole(user, 'ADMIN')
+  const showChangePassword = canChangePassword(user)
 
   const isActive = (path) => location.pathname === path
 
@@ -200,13 +201,15 @@ function Header() {
                     >
                       Đơn hàng
                     </Link>
-                    <Link
-                      to="/change-password"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
-                    >
-                      Đổi mật khẩu
-                    </Link>
+                    {showChangePassword && (
+                      <Link
+                        to="/change-password"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                      >
+                        Đổi mật khẩu
+                      </Link>
+                    )}
                     {isAdmin && (
                       <Link
                         to="/admin"
@@ -264,6 +267,9 @@ function Header() {
             <>
               {isAdmin && (
                 <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className={isActive('/admin') ? 'text-black' : ''}>Quản trị</Link>
+              )}
+              {showChangePassword && (
+                <Link to="/change-password" onClick={() => setMobileMenuOpen(false)} className={isActive('/change-password') ? 'text-black' : ''}>Đổi mật khẩu</Link>
               )}
               <button
                 type="button"

@@ -52,11 +52,23 @@ function Register() {
     setIsLoading(true)
 
     try {
-      await authApi.register({
+      const registerResponse = await authApi.register({
         username: payload.username,
         email: payload.email,
         password: payload.password,
       })
+      const registerData = registerResponse?.data || registerResponse
+
+      if (registerData?.requiresOtp === false) {
+        pendingVerificationStorage.clearEmail()
+        navigate('/login', {
+          replace: true,
+          state: {
+            successMessage: 'Đăng ký thành công. Bạn có thể đăng nhập ngay.',
+          },
+        })
+        return
+      }
 
       pendingVerificationStorage.setEmail(payload.email)
       navigate('/verify-otp', {

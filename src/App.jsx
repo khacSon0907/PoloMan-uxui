@@ -48,10 +48,6 @@ function App() {
     bootstrapAuth().finally(() => {
       if (!isMounted) return
 
-      if (window.location.pathname !== '/') {
-        window.history.replaceState(null, '', '/')
-      }
-
       setIsBootstrapping(false)
     })
 

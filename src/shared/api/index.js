@@ -8,4 +8,4 @@ export {
 } from './axiosClient'
 
 export { tokenStorage } from './tokenStorage'
-export { hasRole, normalizeRoles } from './tokenStorage'
+export { canChangePassword, hasRole, normalizeRoles } from './tokenStorage'

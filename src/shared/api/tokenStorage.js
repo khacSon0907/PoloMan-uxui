@@ -62,6 +62,11 @@ export function hasRole(user, role) {
   )
 }
 
+export function canChangePassword(user) {
+  const providerType = String(user?.providerType || user?.provider || '').toUpperCase()
+  return !providerType || providerType === 'LOCAL' || providerType === 'LOCAL_GOOGLE'
+}
+
 function decodeJwtPayload(token) {
   if (!token) return null
 
@@ -146,6 +151,12 @@ export const tokenStorage = {
     accessToken = token || null
     currentUser = accessToken ? normalizeUser(user, accessToken) : null
     isInitializing = false
+    storeUser(currentUser)
+    notifyListeners()
+  },
+
+  setUser(user) {
+    currentUser = user ? normalizeUser(user, accessToken) : null
     storeUser(currentUser)
     notifyListeners()
   },

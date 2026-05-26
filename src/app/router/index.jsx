@@ -16,6 +16,7 @@ import ForgotPassword from '../../pages/ForgotPassword'
 import Account from '../../pages/Account'
 import ChangePassword from '../../pages/ChangePassword'
 import NotFound from '../../pages/NotFound'
+import OAuth2Success from '../../pages/OAuth2Success'
 
 export const router = createBrowserRouter([
   // MAIN WEBSITE
@@ -95,6 +96,10 @@ export const router = createBrowserRouter([
   {
     path: '/forgot-password',
     element: <ForgotPassword />,
+  },
+  {
+    path: '/oauth2/success',
+    element: <OAuth2Success />,
   },
 
   // 404

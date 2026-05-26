@@ -15,6 +15,13 @@ export const authApi = {
     return persistLoginTokens(response)
   },
 
+  async getMe() {
+    const response = await http.get('/users/me')
+    const user = getApiData(response)
+    tokenStorage.setUser(user)
+    return user
+  },
+
   register(payload) {
     return publicHttp.post('/auth/register', payload)
   },

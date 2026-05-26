@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
-import { getApiMessage, hasRole, tokenStorage } from '../shared/api'
 import { authApi } from '../features/auth'
+import { getApiMessage, hasRole, tokenStorage } from '../shared/api'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
 
 function validateLoginForm({ email, password }) {
   if (!email) return 'Email không được để trống'
@@ -20,8 +21,22 @@ function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState(location.state?.errorMessage || '')
   const [successMessage, setSuccessMessage] = useState(location.state?.successMessage || '')
+
+  const redirectAfterLogin = () => {
+    const loggedInUser = tokenStorage.getUser()
+    const fromPath = location.state?.from?.pathname
+    const shouldReturnToUserPath = fromPath && !fromPath.startsWith('/admin')
+
+    navigate(hasRole(loggedInUser, 'ADMIN') ? '/admin' : shouldReturnToUserPath ? fromPath : '/', {
+      replace: true,
+    })
+  }
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${BACKEND_URL}/oauth2/authorization/google`
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -44,15 +59,11 @@ function Login() {
 
     try {
       await authApi.login(payload)
-      const loggedInUser = tokenStorage.getUser()
-      const fromPath = location.state?.from?.pathname
-      const shouldReturnToUserPath = fromPath && !fromPath.startsWith('/admin')
-
-      navigate(hasRole(loggedInUser, 'ADMIN') ? '/admin' : shouldReturnToUserPath ? fromPath : '/', {
-        replace: true,
-      })
+      redirectAfterLogin()
     } catch (error) {
-      setErrorMessage(getApiMessage(error, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'))
+      setErrorMessage(
+        getApiMessage(error, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'),
+      )
     } finally {
       setIsLoading(false)
     }
@@ -61,23 +72,24 @@ function Login() {
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 sm:py-12">
       <div className="w-full max-w-md">
-        <div className="text-center mb-10">
+        <div className="mb-10 text-center">
           <Link
             to="/"
             className="inline-block text-3xl font-light uppercase tracking-[0.22em] text-black transition-all duration-300 hover:opacity-75 sm:text-4xl sm:tracking-[0.35em]"
           >
             POLOMAN
           </Link>
-          <p className="mt-3 text-sm text-neutral-500 tracking-wide">
+          <p className="mt-3 text-sm tracking-wide text-neutral-500">
             Đăng nhập hoặc tạo tài khoản
           </p>
         </div>
 
         <button
           type="button"
-          className="w-full flex items-center justify-center gap-3 h-12 border border-neutral-300 rounded-lg bg-white text-sm font-medium text-neutral-700 hover:border-black hover:shadow-sm transition-all duration-300 cursor-pointer group"
+          onClick={handleGoogleLogin}
+          className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-lg border border-neutral-300 bg-white text-sm font-medium text-neutral-700 transition-all duration-300 hover:border-black hover:shadow-sm"
         >
-          <svg className="h-5 w-5" viewBox="0 0 24 24">
+          <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
               fill="#4285F4"
@@ -95,9 +107,7 @@ function Login() {
               fill="#EA4335"
             />
           </svg>
-          <span className="group-hover:text-black transition-colors">
-            Tiếp tục với Google
-          </span>
+          <span>Tiếp tục với Google</span>
         </button>
 
         <div className="relative my-8">
@@ -105,7 +115,7 @@ function Login() {
             <div className="w-full border-t border-neutral-200" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-4 text-xs text-neutral-400 uppercase tracking-widest">
+            <span className="bg-white px-4 text-xs uppercase tracking-widest text-neutral-400">
               hoặc
             </span>
           </div>
@@ -136,11 +146,11 @@ function Login() {
               }}
               required
               placeholder=" "
-              className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
+              className="peer h-13 w-full rounded-lg border border-neutral-300 bg-white px-4 pb-2 pt-5 text-sm text-neutral-900 outline-none transition-all duration-300 focus:border-black"
             />
             <label
               htmlFor="login-email"
-              className="absolute left-4 top-2 text-[11px] text-neutral-400 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] uppercase tracking-wider text-neutral-400 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
             >
               Email
             </label>
@@ -158,18 +168,18 @@ function Login() {
               }}
               required
               placeholder=" "
-              className="peer w-full h-13 px-4 pt-5 pb-2 pr-12 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
+              className="peer h-13 w-full rounded-lg border border-neutral-300 bg-white px-4 pb-2 pt-5 pr-12 text-sm text-neutral-900 outline-none transition-all duration-300 focus:border-black"
             />
             <label
               htmlFor="login-password"
-              className="absolute left-4 top-2 text-[11px] text-neutral-400 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] uppercase tracking-wider text-neutral-400 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
             >
               Mật khẩu
             </label>
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 transition-colors hover:text-black"
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
               {showPassword ? (
@@ -188,7 +198,7 @@ function Login() {
           <div className="flex justify-end">
             <Link
               to="/forgot-password"
-              className="text-xs text-neutral-500 hover:text-black transition-colors underline underline-offset-4"
+              className="text-xs text-neutral-500 underline underline-offset-4 transition-colors hover:text-black"
             >
               Quên mật khẩu?
             </Link>
@@ -200,7 +210,7 @@ function Login() {
             className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-black text-sm font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-widest"
           >
             {isLoading ? (
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+              <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -214,19 +224,19 @@ function Login() {
           Chưa có tài khoản?{' '}
           <Link
             to="/register"
-            className="text-black font-semibold hover:underline underline-offset-4 transition-all"
+            className="font-semibold text-black transition-all hover:underline underline-offset-4"
           >
             Đăng ký ngay
           </Link>
         </p>
 
-        <p className="mt-6 text-center text-[11px] text-neutral-400 leading-relaxed">
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-neutral-400">
           Bằng cách tiếp tục, bạn đồng ý với{' '}
-          <a href="/terms" className="underline underline-offset-2 hover:text-black transition-colors">
+          <a href="/terms" className="underline underline-offset-2 transition-colors hover:text-black">
             Điều khoản dịch vụ
           </a>{' '}
           và{' '}
-          <a href="/privacy" className="underline underline-offset-2 hover:text-black transition-colors">
+          <a href="/privacy" className="underline underline-offset-2 transition-colors hover:text-black">
             Chính sách bảo mật
           </a>{' '}
           của chúng tôi.

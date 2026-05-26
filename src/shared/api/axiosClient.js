@@ -49,13 +49,27 @@ const getUserFromResponse = (response) =>
   response?.account ||
   response?.profile;
 
+const getMeWithToken = async (accessToken) => {
+  const response = await publicHttp.get("/users/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return getApiData(response);
+};
+
 export const refreshAccessToken = async () => {
   const refreshResponse = await publicHttp.post("/auth/refresh");
   const newAccessToken = getAccessTokenFromResponse(refreshResponse);
-  const user = getUserFromResponse(refreshResponse);
+  let user = getUserFromResponse(refreshResponse);
 
   if (!newAccessToken) {
     throw new Error("Refresh response did not include an access token");
+  }
+
+  if (!user?.providerType) {
+    user = await getMeWithToken(newAccessToken).catch(() => user);
   }
 
   tokenStorage.setAccessToken(newAccessToken, user);

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../features/auth'
-import { getApiMessage, tokenStorage } from '../shared/api'
+import { canChangePassword, getApiMessage, tokenStorage } from '../shared/api'
 
 function PasswordField({
   autoComplete,
@@ -49,6 +49,10 @@ function ChangePassword() {
 
   if (!authSnapshot.isAuthenticated && !authSnapshot.isInitializing) {
     return <Navigate to="/login" replace />
+  }
+
+  if (authSnapshot.isAuthenticated && !canChangePassword(authSnapshot.user)) {
+    return <Navigate to="/account" replace />
   }
 
   const handleSubmit = async (e) => {

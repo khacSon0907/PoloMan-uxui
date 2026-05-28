@@ -11,6 +11,15 @@ export const categoryApi = {
     return getApiData(response)
   },
 
+  async update(id, payload) {
+    const response = await http.put(`/categories/${id}`, { ...payload, id })
+    return getApiData(response)
+  },
+
+  async delete(id) {
+    await http.delete(`/categories/${id}`)
+  },
+
   async getBySlug(slug) {
     const response = await publicHttp.get(`/categories/${slug}`)
     return getApiData(response)

@@ -7,6 +7,7 @@ import ProtectedRoute from './ProtectedRoute'
 import AdminCategories from '../../pages/admin/AdminCategories'
 import AdminDashboard from '../../pages/admin/AdminDashboard'
 import AdminPlaceholder from '../../pages/admin/AdminPlaceholder'
+import AdminProducts from '../../pages/admin/AdminProducts'
 import Home from '../../pages/Home'
 import Products from '../../pages/Products'
 import Login from '../../pages/Login'
@@ -65,7 +66,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'products',
-            element: <AdminPlaceholder title="Quan ly san pham" />,
+            element: <AdminProducts />,
           },
           {
             path: 'orders',

@@ -9,17 +9,23 @@ function persistLoginTokens(response) {
   return response
 }
 
+async function syncCurrentUser() {
+  const response = await http.get('/users/me')
+  const user = getApiData(response)
+  tokenStorage.setUser(user)
+  return user
+}
+
 export const authApi = {
   async login(payload) {
     const response = await publicHttp.post('/auth/login', payload)
-    return persistLoginTokens(response)
+    persistLoginTokens(response)
+    await syncCurrentUser()
+    return response
   },
 
   async getMe() {
-    const response = await http.get('/users/me')
-    const user = getApiData(response)
-    tokenStorage.setUser(user)
-    return user
+    return syncCurrentUser()
   },
 
   register(payload) {

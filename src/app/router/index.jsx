@@ -1,28 +1,30 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter } from "react-router-dom";
 
-import AdminLayout from '../layouts/AdminLayout'
-import MainLayout from '../layouts/MainLayout'
-import ProtectedRoute from './ProtectedRoute'
+import AdminLayout from "../layouts/AdminLayout";
+import MainLayout from "../layouts/MainLayout";
+import ProtectedRoute from "./ProtectedRoute";
 
-import AdminCategories from '../../pages/admin/AdminCategories'
-import AdminDashboard from '../../pages/admin/AdminDashboard'
-import AdminPlaceholder from '../../pages/admin/AdminPlaceholder'
-import AdminProducts from '../../pages/admin/AdminProducts'
-import Home from '../../pages/Home'
-import Products from '../../pages/Products'
-import Login from '../../pages/Login'
-import Register from '../../pages/Register'
-import VerifyOtp from '../../pages/VerifyOtp'
-import ForgotPassword from '../../pages/ForgotPassword'
-import Account from '../../pages/Account'
-import ChangePassword from '../../pages/ChangePassword'
-import NotFound from '../../pages/NotFound'
-import OAuth2Success from '../../pages/OAuth2Success'
+import AdminCategories from "../../pages/admin/AdminCategories";
+import AdminDashboard from "../../pages/admin/AdminDashboard";
+import AdminPlaceholder from "../../pages/admin/AdminPlaceholder";
+import AdminProducts from "../../pages/admin/AdminProducts";
+import AdminUsers from "../../pages/admin/AdminUsers";
+import Home from "../../pages/Home";
+
+import Products from "../../pages/Products";
+import Login from "../../pages/Login";
+import Register from "../../pages/Register";
+import VerifyOtp from "../../pages/VerifyOtp";
+import ForgotPassword from "../../pages/ForgotPassword";
+import Account from "../../pages/Account";
+import ChangePassword from "../../pages/ChangePassword";
+import NotFound from "../../pages/NotFound";
+import OAuth2Success from "../../pages/OAuth2Success";
 
 export const router = createBrowserRouter([
   // MAIN WEBSITE
   {
-    path: '/',
+    path: "/",
     element: <MainLayout />,
     children: [
       {
@@ -30,19 +32,19 @@ export const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: 'products',
+        path: "products",
         element: <Products />,
       },
       {
-        path: 'collections',
+        path: "collections",
         element: <Products />,
       },
       {
-        path: 'account',
+        path: "account",
         element: <Account />,
       },
       {
-        path: 'change-password',
+        path: "change-password",
         element: <ChangePassword />,
       },
     ],
@@ -53,7 +55,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute requiredRole="ADMIN" />,
     children: [
       {
-        path: '/admin',
+        path: "/admin",
         element: <AdminLayout />,
         children: [
           {
@@ -61,20 +63,20 @@ export const router = createBrowserRouter([
             element: <AdminDashboard />,
           },
           {
-            path: 'categories',
+            path: "categories",
             element: <AdminCategories />,
           },
           {
-            path: 'products',
+            path: "products",
             element: <AdminProducts />,
           },
           {
-            path: 'orders',
+            path: "orders",
             element: <AdminPlaceholder title="Quan ly don hang" />,
           },
           {
-            path: 'users',
-            element: <AdminPlaceholder title="Quan ly khach hang" />,
+            path: "users",
+            element: <AdminUsers />,
           },
         ],
       },
@@ -83,29 +85,29 @@ export const router = createBrowserRouter([
 
   // AUTH PAGES
   {
-    path: '/login',
+    path: "/login",
     element: <Login />,
   },
   {
-    path: '/register',
+    path: "/register",
     element: <Register />,
   },
   {
-    path: '/verify-otp',
+    path: "/verify-otp",
     element: <VerifyOtp />,
   },
   {
-    path: '/forgot-password',
+    path: "/forgot-password",
     element: <ForgotPassword />,
   },
   {
-    path: '/oauth2/success',
+    path: "/oauth2/success",
     element: <OAuth2Success />,
   },
 
   // 404
   {
-    path: '*',
+    path: "*",
     element: <NotFound />,
   },
-])
+]);

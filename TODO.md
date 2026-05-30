@@ -1,0 +1,5 @@
+- [ ] Create user API client: src/features/user/api/userApi.js
+- [x] Create user feature export: src/features/user/index.js
+- [x] Create admin page UI: src/pages/admin/AdminUsers.jsx
+- [x] Add route /admin/users -> AdminUsers in src/app/router/index.jsx
+- [ ] Quick lint/build check: run npm test/lint/build (if available)

@@ -1,10 +1,25 @@
+const ACCESS_TOKEN_STORAGE_KEY = 'poloman.auth.accessToken'
 const USER_STORAGE_KEY = 'poloman.auth.user'
 
-function readStoredUser() {
+function getStorage() {
   if (typeof window === 'undefined') return null
 
   try {
-    const rawUser = window.sessionStorage.getItem(USER_STORAGE_KEY)
+    return window.localStorage || null
+  } catch {
+    return null
+  }
+}
+
+function readStoredUser() {
+  const storage = getStorage()
+  if (!storage) return null
+
+  try {
+    const rawUser =
+      storage.getItem(USER_STORAGE_KEY) ||
+      window.sessionStorage?.getItem(USER_STORAGE_KEY)
+
     return rawUser ? JSON.parse(rawUser) : null
   } catch {
     return null
@@ -12,22 +27,51 @@ function readStoredUser() {
 }
 
 function storeUser(user) {
-  if (typeof window === 'undefined') return
+  const storage = getStorage()
+  if (!storage) return
 
   try {
     if (user) {
-      window.sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+      storage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
     } else {
-      window.sessionStorage.removeItem(USER_STORAGE_KEY)
+      storage.removeItem(USER_STORAGE_KEY)
     }
+
+    window.sessionStorage?.removeItem(USER_STORAGE_KEY)
   } catch {
-    // Session storage can be unavailable in private or restricted browser modes.
+    // Browser storage can be unavailable in private or restricted browser modes.
   }
 }
 
-let accessToken = null
+function readStoredAccessToken() {
+  const storage = getStorage()
+  if (!storage) return null
+
+  try {
+    return storage.getItem(ACCESS_TOKEN_STORAGE_KEY) || null
+  } catch {
+    return null
+  }
+}
+
+function storeAccessToken(token) {
+  const storage = getStorage()
+  if (!storage) return
+
+  try {
+    if (token) {
+      storage.setItem(ACCESS_TOKEN_STORAGE_KEY, token)
+    } else {
+      storage.removeItem(ACCESS_TOKEN_STORAGE_KEY)
+    }
+  } catch {
+    // Browser storage can be unavailable in private or restricted browser modes.
+  }
+}
+
+let accessToken = readStoredAccessToken()
 let currentUser = readStoredUser()
-let isInitializing = Boolean(currentUser)
+let isInitializing = Boolean(accessToken || currentUser)
 const listeners = new Set()
 
 export function normalizeRoles(roles) {
@@ -151,6 +195,7 @@ export const tokenStorage = {
     accessToken = token || null
     currentUser = accessToken ? normalizeUser(user, accessToken) : null
     isInitializing = false
+    storeAccessToken(accessToken)
     storeUser(currentUser)
     notifyListeners()
   },
@@ -165,6 +210,7 @@ export const tokenStorage = {
     accessToken = null
     currentUser = null
     isInitializing = false
+    storeAccessToken(null)
     storeUser(null)
     notifyListeners()
   },

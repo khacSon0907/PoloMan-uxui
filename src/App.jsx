@@ -17,7 +17,9 @@ function bootstrapAuth() {
 
     authBootstrapPromise = Promise.all([
       refreshAccessToken().catch(() => {
-        tokenStorage.clearAccessToken()
+        if (!tokenStorage.getAccessToken()) {
+          tokenStorage.clearAccessToken()
+        }
       }),
       wait(700),
     ]).finally(() => {

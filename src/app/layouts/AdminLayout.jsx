@@ -7,6 +7,7 @@ const adminNavItems = [
   { to: '/admin', label: 'Tong quan' },
   { to: '/admin/categories', label: 'Danh muc' },
   { to: '/admin/products', label: 'San pham' },
+  { to: '/admin/banners', label: 'Banner' },
   { to: '/admin/orders', label: 'Don hang' },
   { to: '/admin/users', label: 'Khach hang' },
 ]

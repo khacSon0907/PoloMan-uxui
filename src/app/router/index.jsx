@@ -5,8 +5,11 @@ import MainLayout from "../layouts/MainLayout";
 import ProtectedRoute from "./ProtectedRoute";
 
 import AdminCategories from "../../pages/admin/AdminCategories";
+import AdminBanners from "../../pages/admin/AdminBanners";
 import AdminDashboard from "../../pages/admin/AdminDashboard";
 import AdminPlaceholder from "../../pages/admin/AdminPlaceholder";
+import AdminProductCreate from "../../pages/admin/AdminProductCreate";
+import AdminProductDetail from "../../pages/admin/AdminProductDetail";
 import AdminProducts from "../../pages/admin/AdminProducts";
 import AdminUsers from "../../pages/admin/AdminUsers";
 import Home from "../../pages/Home";
@@ -69,6 +72,22 @@ export const router = createBrowserRouter([
           {
             path: "products",
             element: <AdminProducts />,
+          },
+          {
+            path: "products/create",
+            element: <AdminProductCreate />,
+          },
+          {
+            path: "products/:id",
+            element: <AdminProductDetail />,
+          },
+          {
+            path: "products/:id/edit",
+            element: <AdminPlaceholder title="Cap nhat san pham" />,
+          },
+          {
+            path: "banners",
+            element: <AdminBanners />,
           },
           {
             path: "orders",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { bannerApi } from '../features/banner'
 import { categoryApi } from '../features/category'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
@@ -18,8 +19,17 @@ const categoryImages = [
   'https://images.unsplash.com/photo-1622434641406-a158123450f9?q=80&w=300&auto=format&fit=crop',
 ]
 
+const fallbackHeroBanner = {
+  title: 'BST MUA HE 2026',
+  subtitle:
+    'Kham pha cac thiet ke toi gian, tinh te hang dau. Chat lieu cao cap chuan phom ton dang thoi thuong cho quy ong hien dai.',
+  imageUrl: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=600&auto=format&fit=crop',
+  linkUrl: '/products',
+}
+
 function Home() {
   const [categories, setCategories] = useState(fallbackCategories)
+  const [heroBanner, setHeroBanner] = useState(fallbackHeroBanner)
 
   usePageMeta({
     title: 'PoloMan Store | Thời trang nam cao cấp',
@@ -31,14 +41,32 @@ function Home() {
   useEffect(() => {
     let isMounted = true
 
-    categoryApi
-      .list()
-      .then((list) => {
-        if (!isMounted || !Array.isArray(list) || !list.length) return
-        setCategories(list.filter((category) => category.active !== false))
-      })
-      .catch(() => {
-        if (isMounted) setCategories(fallbackCategories)
+    Promise.allSettled([categoryApi.list(), bannerApi.listActive()])
+      .then(([categoryResult, bannerResult]) => {
+        if (!isMounted) return
+
+        if (
+          categoryResult.status === 'fulfilled' &&
+          Array.isArray(categoryResult.value) &&
+          categoryResult.value.length
+        ) {
+          setCategories(categoryResult.value.filter((category) => category.active !== false))
+        }
+
+        if (bannerResult.status === 'fulfilled' && Array.isArray(bannerResult.value)) {
+          const activeBanner = [...bannerResult.value]
+            .filter((banner) => banner?.active !== false && banner?.imageUrl)
+            .sort((first, second) => Number(first.sortOrder || 0) - Number(second.sortOrder || 0))[0]
+
+          if (activeBanner) {
+            setHeroBanner({
+              title: activeBanner.title || fallbackHeroBanner.title,
+              subtitle: activeBanner.subtitle || fallbackHeroBanner.subtitle,
+              imageUrl: activeBanner.imageUrl,
+              linkUrl: activeBanner.linkUrl || fallbackHeroBanner.linkUrl,
+            })
+          }
+        }
       })
 
     return () => {
@@ -90,17 +118,17 @@ function Home() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 md:flex-row md:gap-10 lg:gap-12 lg:py-24">
           <div className="flex-1 space-y-5 text-center md:text-left lg:space-y-6">
             <span className="inline-flex px-3 py-1 bg-white/10 text-white border border-white/20 rounded-md text-xs font-bold uppercase tracking-widest">
-              BST MÙA HÈ 2026
+              {heroBanner.title}
             </span>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white uppercase font-sans sm:text-4xl lg:text-6xl">
               NÂNG TẦM <br />
               <span className="text-neutral-400">PHONG THÁI</span>
             </h1>
             <p className="mx-auto max-w-sm text-sm leading-relaxed text-neutral-400 md:mx-0">
-              Khám phá các thiết kế tối giản, tinh tế hàng đầu. Chất liệu cao cấp chuẩn phom tôn dáng thời thượng cho quý ông hiện đại.
+              {heroBanner.subtitle}
             </p>
             <div className="flex flex-col items-stretch justify-center gap-3 pt-1 sm:flex-row sm:items-center md:justify-start">
-              <Link to="/products" className="w-full sm:w-auto px-8 py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-bold rounded-md hover:scale-[1.02] active:scale-[0.98] transition-all text-center text-xs tracking-wider uppercase cursor-pointer">
+              <Link to={heroBanner.linkUrl || '/products'} className="w-full sm:w-auto px-8 py-3 bg-white hover:bg-neutral-200 text-neutral-950 font-bold rounded-md hover:scale-[1.02] active:scale-[0.98] transition-all text-center text-xs tracking-wider uppercase cursor-pointer">
                 Mua Ngay
               </Link>
               <Link to="/collections" className="w-full sm:w-auto px-8 py-3 bg-transparent hover:bg-white/10 text-white font-bold rounded-md border border-white/40 hover:scale-[1.02] active:scale-[0.98] transition-all text-center text-xs tracking-wider uppercase cursor-pointer">
@@ -110,8 +138,8 @@ function Home() {
           </div>
           <div className="w-full max-w-sm flex-1 md:max-w-none">
             <img
-              src="https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=600&auto=format&fit=crop"
-              alt="PoloMan Hero"
+              src={heroBanner.imageUrl}
+              alt={heroBanner.title || 'PoloMan Hero'}
               className="aspect-[4/5] h-auto max-h-[420px] w-full rounded-md border border-neutral-800 object-cover shadow-2xl grayscale transition-all duration-700 hover:grayscale-0 sm:aspect-[5/4] md:aspect-[4/5]"
             />
           </div>

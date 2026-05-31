@@ -6,6 +6,11 @@ export const productApi = {
     return getApiData(response) || []
   },
 
+  async getById(id) {
+    const response = await publicHttp.get(`/products/${id}`)
+    return getApiData(response)
+  },
+
   async create(payload) {
     const response = await http.post('/products', payload)
     return getApiData(response)

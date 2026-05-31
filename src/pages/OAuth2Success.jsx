@@ -15,10 +15,16 @@ function OAuth2Success() {
       const accessToken = searchParams.get('accessToken') || searchParams.get('token')
 
       try {
-        if (accessToken) {
-          tokenStorage.setAccessToken(accessToken)
-        } else {
-          await authApi.refreshToken()
+        if (!tokenStorage.getAccessToken()) {
+          try {
+            await authApi.refreshToken()
+          } catch (refreshError) {
+            if (!accessToken) {
+              throw refreshError
+            }
+
+            tokenStorage.setAccessToken(accessToken)
+          }
         }
 
         await authApi.getMe()

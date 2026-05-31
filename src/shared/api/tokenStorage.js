@@ -70,8 +70,13 @@ export function hasRole(user, role) {
 }
 
 export function canChangePassword(user) {
-  const providerType = String(user?.providerType || user?.provider || '').toUpperCase()
-  return !providerType || providerType === 'LOCAL' || providerType === 'LOCAL_GOOGLE'
+  const authProvider = String(
+    user?.authProvider || user?.providerType || user?.provider || '',
+  )
+    .trim()
+    .toUpperCase()
+
+  return authProvider === 'LOCAL' || authProvider === 'LOCAL_GOOGLE'
 }
 
 function decodeJwtPayload(token) {
@@ -89,6 +94,11 @@ function decodeJwtPayload(token) {
       email: decodedPayload.email || decodedPayload.sub || '',
       username: decodedPayload.username || decodedPayload.name || decodedPayload.fullName || '',
       avatarUrl: decodedPayload.avatarUrl || decodedPayload.avatar || decodedPayload.picture || '',
+      authProvider:
+        decodedPayload.authProvider ||
+        decodedPayload.providerType ||
+        decodedPayload.provider ||
+        '',
       roles: normalizeRoles(
         decodedPayload.roles || decodedPayload.role || decodedPayload.authorities,
       ),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { userApi } from "../../features/user";
 import { getApiMessage } from "../../shared/api";
@@ -42,19 +42,21 @@ function AdminUsers() {
     return { total, active };
   }, [users]);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage("");
 
     try {
       const list = await userApi.getAll();
       setUsers(Array.isArray(list) ? list : []);
+      return list;
     } catch (error) {
       setErrorMessage(getApiMessage(error, "Khong the tai duoc nguoi dung."));
+      return [];
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

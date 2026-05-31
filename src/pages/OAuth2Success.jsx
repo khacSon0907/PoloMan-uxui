@@ -9,34 +9,42 @@ function OAuth2Success() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    const accessToken = searchParams.get('accessToken') || searchParams.get('token')
+    let isMounted = true
 
-    if (!accessToken) {
-      navigate('/login', {
-        replace: true,
-        state: {
-          errorMessage: 'Đăng nhập Google thất bại. Vui lòng thử lại.',
-        },
-      })
-      return
+    async function completeOAuthLogin() {
+      const accessToken = searchParams.get('accessToken') || searchParams.get('token')
+
+      try {
+        if (accessToken) {
+          tokenStorage.setAccessToken(accessToken)
+        } else {
+          await authApi.refreshToken()
+        }
+
+        await authApi.getMe()
+
+        if (isMounted) {
+          navigate('/', { replace: true })
+        }
+      } catch {
+        tokenStorage.clearAccessToken()
+
+        if (isMounted) {
+          navigate('/login', {
+            replace: true,
+            state: {
+              errorMessage: 'Đăng nhập Google thất bại. Vui lòng thử lại.',
+            },
+          })
+        }
+      }
     }
 
-    if (typeof tokenStorage.setAccessToken === 'function') {
-      tokenStorage.setAccessToken(accessToken)
-    } else if (typeof tokenStorage.setToken === 'function') {
-      tokenStorage.setToken(accessToken)
-    } else if (typeof tokenStorage.setTokens === 'function') {
-      tokenStorage.setTokens({ accessToken })
-    } else {
-      throw new Error('tokenStorage chưa có hàm lưu accessToken vào RAM.')
-    }
+    completeOAuthLogin()
 
-    authApi
-      .getMe()
-      .catch(() => undefined)
-      .finally(() => {
-        navigate('/', { replace: true })
-      })
+    return () => {
+      isMounted = false
+    }
   }, [navigate, searchParams])
 
   return (

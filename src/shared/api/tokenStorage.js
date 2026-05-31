@@ -1,78 +1,41 @@
-const ACCESS_TOKEN_STORAGE_KEY = 'poloman.auth.accessToken'
-const USER_STORAGE_KEY = 'poloman.auth.user'
-
-function getStorage() {
-  if (typeof window === 'undefined') return null
-
-  try {
-    return window.localStorage || null
-  } catch {
-    return null
-  }
-}
-
-function readStoredUser() {
-  const storage = getStorage()
-  if (!storage) return null
-
-  try {
-    const rawUser =
-      storage.getItem(USER_STORAGE_KEY) ||
-      window.sessionStorage?.getItem(USER_STORAGE_KEY)
-
-    return rawUser ? JSON.parse(rawUser) : null
-  } catch {
-    return null
-  }
-}
-
-function storeUser(user) {
-  const storage = getStorage()
-  if (!storage) return
-
-  try {
-    if (user) {
-      storage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
-    } else {
-      storage.removeItem(USER_STORAGE_KEY)
-    }
-
-    window.sessionStorage?.removeItem(USER_STORAGE_KEY)
-  } catch {
-    // Browser storage can be unavailable in private or restricted browser modes.
-  }
-}
-
-function readStoredAccessToken() {
-  const storage = getStorage()
-  if (!storage) return null
-
-  try {
-    return storage.getItem(ACCESS_TOKEN_STORAGE_KEY) || null
-  } catch {
-    return null
-  }
-}
-
-function storeAccessToken(token) {
-  const storage = getStorage()
-  if (!storage) return
-
-  try {
-    if (token) {
-      storage.setItem(ACCESS_TOKEN_STORAGE_KEY, token)
-    } else {
-      storage.removeItem(ACCESS_TOKEN_STORAGE_KEY)
-    }
-  } catch {
-    // Browser storage can be unavailable in private or restricted browser modes.
-  }
-}
-
-let accessToken = readStoredAccessToken()
-let currentUser = readStoredUser()
-let isInitializing = Boolean(accessToken || currentUser)
+let accessToken = null
+let currentUser = null
+let isInitializing = false
 const listeners = new Set()
+const LEGACY_AUTH_STORAGE_KEYS = [
+  'poloman.auth.accessToken',
+  'poloman.auth.refreshToken',
+  'poloman.auth.user',
+]
+const CLIENT_CLEARABLE_AUTH_COOKIE_NAMES = [
+  'refreshToken',
+  'refreshtoken',
+  'JSESSIONID',
+]
+
+function clearLegacyAuthStorage() {
+  if (typeof window === 'undefined') return
+
+  try {
+    LEGACY_AUTH_STORAGE_KEYS.forEach((key) => {
+      window.localStorage?.removeItem(key)
+      window.sessionStorage?.removeItem(key)
+    })
+  } catch {
+    // Storage can be blocked in private or restricted browser modes.
+  }
+}
+
+clearLegacyAuthStorage()
+
+function clearClientAuthCookies() {
+  if (typeof document === 'undefined') return
+
+  CLIENT_CLEARABLE_AUTH_COOKIE_NAMES.forEach((name) => {
+    document.cookie = `${name}=; Max-Age=0; path=/`
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+  })
+}
 
 export function normalizeRoles(roles) {
   if (!roles) return []
@@ -185,7 +148,7 @@ export const tokenStorage = {
   getSnapshot() {
     return {
       accessToken,
-      isAuthenticated: Boolean(accessToken || currentUser),
+      isAuthenticated: Boolean(accessToken),
       isInitializing,
       user: currentUser,
     }
@@ -195,23 +158,20 @@ export const tokenStorage = {
     accessToken = token || null
     currentUser = accessToken ? normalizeUser(user, accessToken) : null
     isInitializing = false
-    storeAccessToken(accessToken)
-    storeUser(currentUser)
     notifyListeners()
   },
 
   setUser(user) {
     currentUser = user ? normalizeUser(user, accessToken) : null
-    storeUser(currentUser)
     notifyListeners()
   },
 
   clearAccessToken() {
+    clearLegacyAuthStorage()
+    clearClientAuthCookies()
     accessToken = null
     currentUser = null
     isInitializing = false
-    storeAccessToken(null)
-    storeUser(null)
     notifyListeners()
   },
 

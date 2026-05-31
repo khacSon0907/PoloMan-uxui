@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 
-import { getApiMessage, http, tokenStorage } from '../shared/api'
+import { userApi } from '../features/user'
+import { getApiMessage, tokenStorage } from '../shared/api'
 import { uploadImageToCloudinary } from '../shared/services/cloudinaryUpload'
 
 function getDisplayName(user) {
@@ -168,15 +169,18 @@ function Account() {
         ...payload,
         avatarUrl,
       }
-      const updateResponse = await http.put('/users/me', finalPayload)
+      const updateResponse = await userApi.updateMe(finalPayload)
       const updatedUser = getUpdatedUserFromResponse(updateResponse)
+      const syncedUser = await userApi.getMe().catch(() => null)
 
-      tokenStorage.setUser({
-        ...user,
-        ...finalPayload,
-        ...updatedUser,
-        avatarUrl: updatedUser?.avatarUrl || avatarUrl,
-      })
+      tokenStorage.setUser(
+        syncedUser || {
+          ...user,
+          ...finalPayload,
+          ...updatedUser,
+          avatarUrl: updatedUser?.avatarUrl || avatarUrl,
+        },
+      )
       resetAvatarPreview()
       setIsEditingProfile(false)
       setProfileMessage('Cập nhật thông tin cá nhân thành công')

@@ -1,55 +1,86 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { categoryApi } from '../features/category'
+import {
+  formatCurrency,
+  getProductColors,
+  getProductCategoryId,
+  getProductId,
+  getProductImage,
+  getProductSizes,
+  getProductSlug,
+  productApi,
+} from '../features/product'
+import { getApiMessage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
-const fallbackCategories = [
-  { id: 'polo', name: 'Áo Polo', slug: 'polo', active: true },
-  { id: 'shirt', name: 'Áo Sơ Mi', slug: 'shirt', active: true },
-  { id: 'trouser', name: 'Quần Nam', slug: 'trouser', active: true },
-  { id: 'accessory', name: 'Phụ kiện', slug: 'accessory', active: true },
-]
+function normalizeValue(value) {
+  return String(value || '').trim().toLowerCase()
+}
 
-function matchesCategory(productCategory, selectedCategory) {
+function productMatchesCategory(product, selectedCategory) {
   if (selectedCategory === 'all') return true
 
-  const normalizedSelected = selectedCategory.toLowerCase()
-  const aliasMap = {
-    'ao-polo': 'polo',
-    'ao-so-mi': 'shirt',
-    'quan-nam': 'trouser',
-    'quan-khaki': 'trouser',
-    'phu-kien': 'accessory',
+  const selected = normalizeValue(selectedCategory)
+  const categoryValues = [
+    getProductCategoryId(product),
+    product?.category?.name,
+    product?.categoryName,
+    product?.categoryId,
+  ].map(normalizeValue)
+
+  return categoryValues.includes(selected)
+}
+
+function productMatchesSize(product, selectedSize) {
+  if (selectedSize === 'all') return true
+
+  const colors = getProductColors(product)
+
+  if (!colors.length) {
+    return getProductSizes(product).some((size) => normalizeValue(size?.size) === normalizeValue(selectedSize))
   }
 
-  return productCategory === (aliasMap[normalizedSelected] || normalizedSelected)
+  return colors.some((color) =>
+    getProductSizes(product, color).some((size) => normalizeValue(size?.size) === normalizeValue(selectedSize)),
+  )
 }
 
 function Products() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedSize, setSelectedSize] = useState('all')
-  const [categories, setCategories] = useState(fallbackCategories)
+  const [categories, setCategories] = useState([])
+  const [products, setProducts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
   const selectedCategory = searchParams.get('category') || 'all'
 
   usePageMeta({
-    title: 'Danh sách sản phẩm PoloMan | Áo polo, sơ mi, quần nam',
-    description:
-      'Khám phá danh sách sản phẩm thời trang nam PoloMan theo danh mục, kích thước và phong cách hiện đại.',
+    title: 'Danh sach san pham PoloMan',
+    description: 'Kham pha san pham thoi trang nam PoloMan theo danh muc va kich thuoc.',
     canonicalPath: '/products',
   })
 
   useEffect(() => {
     let isMounted = true
 
-    categoryApi
-      .list()
-      .then((list) => {
-        if (!isMounted || !Array.isArray(list) || !list.length) return
-        setCategories(list.filter((category) => category.active !== false))
+    Promise.allSettled([categoryApi.list(), productApi.getAll()])
+      .then(([categoryResult, productResult]) => {
+        if (!isMounted) return
+
+        if (categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value)) {
+          setCategories(categoryResult.value.filter((category) => category.active !== false))
+        }
+
+        if (productResult.status === 'fulfilled' && Array.isArray(productResult.value)) {
+          setProducts(productResult.value.filter((product) => product.active !== false))
+        } else if (productResult.status === 'rejected') {
+          setErrorMessage(getApiMessage(productResult.reason, 'Khong the tai san pham.'))
+        }
       })
-      .catch(() => {
-        if (isMounted) setCategories(fallbackCategories)
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
       })
 
     return () => {
@@ -59,13 +90,43 @@ function Products() {
 
   const categoryOptions = useMemo(
     () => [
-      { id: 'all', name: 'Tất cả' },
-      ...(categories.length ? categories : fallbackCategories).map((category) => ({
-        id: category.slug || category.id || category.name,
+      { id: 'all', name: 'Tat ca' },
+      ...categories.map((category) => ({
+        id: category.slug || category.id || category._id || category.name,
         name: category.name,
       })),
     ],
     [categories],
+  )
+
+  const sizeOptions = useMemo(() => {
+    const sizes = new Set()
+    products.forEach((product) => {
+      const colors = getProductColors(product)
+
+      if (!colors.length) {
+        getProductSizes(product).forEach((size) => {
+          if (size?.size) sizes.add(String(size.size).trim())
+        })
+        return
+      }
+
+      colors.forEach((color) => {
+        getProductSizes(product, color).forEach((size) => {
+          if (size?.size) sizes.add(String(size.size).trim())
+        })
+      })
+    })
+
+    return ['all', ...Array.from(sizes)]
+  }, [products])
+
+  const filteredProducts = useMemo(
+    () =>
+      products.filter(
+        (product) => productMatchesCategory(product, selectedCategory) && productMatchesSize(product, selectedSize),
+      ),
+    [products, selectedCategory, selectedSize],
   )
 
   const handleCategoryChange = (categoryId) => {
@@ -73,53 +134,39 @@ function Products() {
       setSearchParams({})
       return
     }
+
     setSearchParams({ category: categoryId })
   }
 
-  const productsList = [
-    { id: 1, name: 'Áo Polo Signature Cotton Pima', price: 380000, category: 'polo', size: 'M', image: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?q=80&w=400&auto=format&fit=crop' },
-    { id: 2, name: 'Áo Sơ Mi Linen Cổ Tàu', price: 420000, category: 'shirt', size: 'L', image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=400&auto=format&fit=crop' },
-    { id: 3, name: 'Quần Khaki Premium Slim-fit', price: 495000, category: 'trouser', size: 'XL', image: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=400&auto=format&fit=crop' },
-    { id: 4, name: 'Áo Polo Active Pro Thể Thao', price: 350000, category: 'polo', size: 'M', image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=400&auto=format&fit=crop' },
-    { id: 5, name: 'Áo Sơ Mi Oxford Cotton Họa Tiết', price: 460000, category: 'shirt', size: 'M', image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=400&auto=format&fit=crop' },
-    { id: 6, name: 'Quần Tây Âu Luxury Crepe', price: 550000, category: 'trouser', size: 'L', image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=400&auto=format&fit=crop' },
-    { id: 7, name: 'Áo Polo Knit Họa Tiết Sang Trọng', price: 590000, category: 'polo', size: 'L', image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=400&auto=format&fit=crop' },
-    { id: 8, name: 'Kính Mát Thời Trang PoloMan', price: 290000, category: 'accessory', size: 'all', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=400&auto=format&fit=crop' },
-  ]
-
-  // Filter Logic
-  const filteredProducts = productsList.filter(prod => {
-    const categoryMatch = matchesCategory(prod.category, selectedCategory)
-    const sizeMatch = selectedSize === 'all' || prod.size === selectedSize || prod.size === 'all'
-    return categoryMatch && sizeMatch
-  })
-
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-lg border border-neutral-900 bg-neutral-950 p-5 sm:p-8">
-        <h1 className="text-xl font-black uppercase tracking-[0.14em] text-white sm:text-2xl sm:tracking-widest">Danh sách sản phẩm</h1>
-        <p className="mt-2 max-w-lg text-xs leading-5 text-neutral-400">Tổng hợp tất cả thiết kế tối giản, tuyển chọn cao cấp giúp nâng tầm phong thái của bạn.</p>
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-[linear-gradient(135deg,#f7fbf4_0%,#eef7ec_55%,#ffffff_100%)] p-5 shadow-sm sm:p-8">
+        <div className="absolute -right-10 -top-14 h-40 w-40 rounded-full bg-emerald-100/70 blur-3xl" />
+        <div className="absolute -bottom-16 left-1/2 h-32 w-32 rounded-full bg-lime-100/70 blur-3xl" />
+        <h1 className="relative text-xl font-black uppercase tracking-[0.14em] text-emerald-950 sm:text-2xl sm:tracking-widest">
+          Danh sach san pham
+        </h1>
+        <p className="relative mt-2 max-w-lg text-xs leading-5 text-emerald-900/60">
+          Tat ca san pham dang active duoc lay truc tiep tu he thong admin.
+        </p>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-
-        {/* SIDEBAR FILTERS */}
         <aside className="w-full flex-shrink-0 space-y-6 lg:w-64">
-          <div className="space-y-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4 sm:p-5 lg:p-6">
-
-            {/* Category Filter */}
+          <div className="space-y-5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5 lg:p-6">
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-neutral-950 uppercase tracking-widest">Danh mục</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-950">Danh muc</h3>
               <div className="scrollbar-hidden -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:block lg:space-y-1.5 lg:overflow-visible lg:px-0 lg:pb-0">
-                {categoryOptions.map(cat => (
+                {categoryOptions.map((cat) => (
                   <button
                     key={cat.id}
+                    type="button"
                     onClick={() => handleCategoryChange(cat.id)}
-                    className={`flex shrink-0 cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-left text-xs font-semibold transition-all lg:w-full lg:py-1.5 ${selectedCategory === cat.id
-                        ? 'bg-black text-white font-bold'
-                        : 'text-neutral-600 hover:bg-neutral-200 hover:text-black'
-                      }`}
+                    className={`flex shrink-0 cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-left text-xs font-semibold transition-all lg:w-full lg:py-1.5 ${
+                      selectedCategory === cat.id
+                        ? 'bg-emerald-800 font-bold text-white'
+                        : 'text-emerald-900/70 hover:bg-white hover:text-emerald-950'
+                    }`}
                   >
                     <span>{cat.name}</span>
                   </button>
@@ -127,73 +174,109 @@ function Products() {
               </div>
             </div>
 
-            <hr className="border-neutral-200" />
+            <hr className="border-emerald-100" />
 
-            {/* Size Filter */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-neutral-950 uppercase tracking-widest">Kích thước</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-950">Kich thuoc</h3>
               <div className="flex flex-wrap gap-2">
-                {['all', 'S', 'M', 'L', 'XL'].map(size => (
+                {sizeOptions.map((size) => (
                   <button
                     key={size}
+                    type="button"
                     onClick={() => setSelectedSize(size)}
-                    className={`h-8 min-w-8 px-2 rounded-md border text-xs font-extrabold transition-all flex items-center justify-center cursor-pointer ${selectedSize === size
-                        ? 'bg-black text-white border-black'
-                        : 'border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-black'
-                      }`}
+                    className={`flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-md border px-2 text-xs font-extrabold transition-all ${
+                      selectedSize === size
+                        ? 'border-emerald-800 bg-emerald-800 text-white'
+                        : 'border-emerald-100 bg-white text-emerald-900/65 hover:border-emerald-400 hover:text-emerald-950'
+                    }`}
                   >
-                    {size === 'all' ? 'Tất cả' : size}
+                    {size === 'all' ? 'Tat ca' : size}
                   </button>
                 ))}
               </div>
             </div>
-
           </div>
         </aside>
 
-        {/* PRODUCTS GRID */}
         <div className="flex-grow space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-neutral-400">Hiển thị <span className="text-neutral-800 font-bold">{filteredProducts.length}</span> sản phẩm</p>
+            <p className="text-xs text-neutral-400">
+              Hien thi <span className="font-bold text-emerald-900">{filteredProducts.length}</span> san pham
+            </p>
           </div>
 
-          {filteredProducts.length > 0 ? (
+          {errorMessage && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-600">
+              {errorMessage}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex min-h-80 items-center justify-center rounded-lg border border-neutral-200 bg-white">
+              <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-black" />
+            </div>
+          ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 lg:gap-6">
-              {filteredProducts.map(prod => (
-                <div key={prod.id} className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white transition-all hover:border-neutral-400">
-                  <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 sm:h-60 sm:aspect-auto">
-                    <img
-                      src={prod.image}
-                      alt={prod.name}
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 grayscale group-hover:grayscale-0"
-                    />
-                  </div>
-                  <div className="p-5 flex flex-col justify-between flex-grow space-y-4">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-neutral-800 group-hover:text-black transition-colors text-xs line-clamp-2">
-                        {prod.name}
-                      </h3>
-                      <p className="text-black font-extrabold text-sm">{(prod.price).toLocaleString()}đ</p>
+              {filteredProducts.map((prod, index) => {
+                const imageUrl = getProductImage(prod)
+
+                return (
+                  <Link
+                    key={getProductId(prod) || index}
+                    to={`/products/${getProductSlug(prod)}`}
+                    className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
+                  >
+                    <div className="relative aspect-[4/5] overflow-hidden bg-emerald-50 sm:h-60 sm:aspect-auto">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={prod.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-neutral-400">
+                          No image
+                        </div>
+                      )}
                     </div>
-                    <button className="w-full py-2.5 bg-black hover:bg-neutral-800 text-white font-bold rounded-md text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                      </svg>
-                      Thêm vào giỏ
-                    </button>
-                  </div>
-                </div>
-              ))}
+                    <div className="flex flex-grow flex-col justify-between space-y-4 p-5">
+                      <div className="space-y-1">
+                        <h3 className="line-clamp-2 text-sm font-bold text-emerald-950 transition-colors group-hover:text-emerald-700">
+                          {prod.name}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-extrabold text-emerald-900">
+                            {formatCurrency(prod.salePrice || prod.price)}
+                          </span>
+                          {prod.salePrice && (
+                            <span className="text-[10px] text-neutral-400 line-through">
+                              {formatCurrency(prod.price)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[1fr_44px] gap-2">
+                        <span className="flex items-center justify-center gap-1.5 rounded-md bg-emerald-800 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-all group-hover:bg-emerald-900">
+                          Mua ngay
+                        </span>
+                        <span className="flex items-center justify-center rounded-md border border-emerald-200 text-emerald-800 transition-colors group-hover:border-emerald-700 group-hover:bg-emerald-50">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           ) : (
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-8 text-center sm:p-12">
-              <span className="text-3xl">🔍</span>
-              <h3 className="text-sm font-bold text-neutral-800 mt-4">Không tìm thấy sản phẩm</h3>
-              <p className="text-xs text-neutral-500 mt-1">Vui lòng thử bộ lọc khác.</p>
+              <h3 className="mt-4 text-sm font-bold text-neutral-800">Khong co san pham</h3>
+              <p className="mt-1 text-xs text-neutral-500">Hay tao san pham active trong trang admin.</p>
             </div>
           )}
         </div>
-
       </div>
     </div>
   )

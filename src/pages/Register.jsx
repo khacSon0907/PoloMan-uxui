@@ -91,16 +91,18 @@ function Register() {
     (/[^A-Za-z0-9]/.test(password) ? 1 : 0)
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 sm:py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-10">
+    <div className="relative -mx-4 flex min-h-[82vh] items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#fbfdf8_0%,#eef7ec_52%,#ffffff_100%)] px-4 py-10 sm:-mx-6 sm:py-14 lg:-mx-10">
+      <div className="absolute -left-20 top-16 h-64 w-64 rounded-full bg-emerald-100/70 blur-3xl" />
+      <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-lime-100/70 blur-3xl" />
+      <div className="relative w-full max-w-md rounded-3xl border border-emerald-100 bg-white/88 p-6 shadow-[0_24px_80px_rgba(20,83,45,0.12)] backdrop-blur sm:p-8">
+        <div className="text-center mb-8">
           <Link
             to="/"
-            className="inline-block text-3xl font-light uppercase tracking-[0.22em] text-black transition-all duration-300 hover:opacity-75 sm:text-4xl sm:tracking-[0.35em]"
+            className="inline-block text-3xl font-light uppercase tracking-[0.22em] text-emerald-900 transition-all duration-300 hover:opacity-75 sm:text-4xl sm:tracking-[0.35em]"
           >
             POLOMAN
           </Link>
-          <p className="mt-3 text-sm text-neutral-500 tracking-wide">
+          <p className="mt-3 text-sm text-emerald-900/60 tracking-wide">
             Tạo tài khoản mới
           </p>
         </div>
@@ -125,11 +127,11 @@ function Register() {
               minLength={3}
               maxLength={30}
               placeholder=" "
-              className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
+              className="peer w-full h-13 px-4 pt-5 pb-2 border border-emerald-100 rounded-xl text-sm text-emerald-950 bg-emerald-50/40 outline-none focus:border-emerald-700 focus:bg-white transition-all duration-300"
             />
             <label
               htmlFor="register-username"
-              className="absolute left-4 top-2 text-[11px] text-neutral-400 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] text-emerald-900/45 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-emerald-800"
             >
               Tên người dùng
             </label>
@@ -146,11 +148,11 @@ function Register() {
               }}
               required
               placeholder=" "
-              className="peer w-full h-13 px-4 pt-5 pb-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
+              className="peer w-full h-13 px-4 pt-5 pb-2 border border-emerald-100 rounded-xl text-sm text-emerald-950 bg-emerald-50/40 outline-none focus:border-emerald-700 focus:bg-white transition-all duration-300"
             />
             <label
               htmlFor="register-email"
-              className="absolute left-4 top-2 text-[11px] text-neutral-400 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] text-emerald-900/45 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-emerald-800"
             >
               Email
             </label>
@@ -169,18 +171,18 @@ function Register() {
               minLength={6}
               maxLength={50}
               placeholder=" "
-              className="peer w-full h-13 px-4 pt-5 pb-2 pr-12 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white outline-none focus:border-black transition-all duration-300"
+              className="peer w-full h-13 px-4 pt-5 pb-2 pr-12 border border-emerald-100 rounded-xl text-sm text-emerald-950 bg-emerald-50/40 outline-none focus:border-emerald-700 focus:bg-white transition-all duration-300"
             />
             <label
               htmlFor="register-password"
-              className="absolute left-4 top-2 text-[11px] text-neutral-400 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] text-emerald-900/45 uppercase tracking-wider transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-emerald-800"
             >
               Mật khẩu
             </label>
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-900/45 hover:text-emerald-900 transition-colors"
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
               {showPassword ? (
@@ -205,18 +207,18 @@ function Register() {
                     className={`h-1 flex-1 rounded-full transition-all duration-500 ${
                       level <= passwordStrength
                         ? passwordStrength <= 1
-                          ? 'bg-neutral-400'
+                          ? 'bg-emerald-300'
                           : passwordStrength <= 2
-                            ? 'bg-neutral-500'
+                            ? 'bg-emerald-500'
                             : passwordStrength <= 3
-                              ? 'bg-neutral-700'
-                              : 'bg-black'
-                        : 'bg-neutral-200'
+                              ? 'bg-emerald-700'
+                              : 'bg-emerald-900'
+                        : 'bg-emerald-100'
                     }`}
                   />
                 ))}
               </div>
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px] text-emerald-900/45">
                 Mật khẩu phải từ 6 đến 50 ký tự
               </p>
             </div>
@@ -233,7 +235,7 @@ function Register() {
                 }}
                 className="sr-only peer"
               />
-              <div className="w-5 h-5 border border-neutral-300 rounded transition-all duration-300 peer-checked:bg-black peer-checked:border-black group-hover:border-neutral-500" />
+              <div className="w-5 h-5 border border-emerald-200 rounded transition-all duration-300 peer-checked:bg-emerald-800 peer-checked:border-emerald-800 group-hover:border-emerald-500" />
               <svg
                 className={`absolute top-0.5 left-0.5 h-4 w-4 text-white transition-all duration-300 ${
                   agreeTerms ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
@@ -246,13 +248,13 @@ function Register() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <span className="text-xs text-neutral-500 leading-relaxed">
+            <span className="text-xs text-emerald-900/60 leading-relaxed">
               Tôi đồng ý với{' '}
-              <a href="/terms" className="text-black underline underline-offset-2 hover:no-underline">
+              <a href="/terms" className="text-emerald-800 underline underline-offset-2 hover:no-underline">
                 Điều khoản dịch vụ
               </a>{' '}
               và{' '}
-              <a href="/privacy" className="text-black underline underline-offset-2 hover:no-underline">
+              <a href="/privacy" className="text-emerald-800 underline underline-offset-2 hover:no-underline">
                 Chính sách bảo mật
               </a>{' '}
               của PoloMan
@@ -262,7 +264,7 @@ function Register() {
           <button
             type="submit"
             disabled={isLoading}
-            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-black text-sm font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:tracking-widest"
+            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-emerald-800 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-sm transition-all duration-300 hover:bg-emerald-900 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:tracking-widest"
           >
             {isLoading ? (
               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
@@ -275,11 +277,11 @@ function Register() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-neutral-500">
+        <p className="mt-8 text-center text-sm text-emerald-900/60">
           Đã có tài khoản?{' '}
           <Link
             to="/login"
-            className="text-black font-semibold hover:underline underline-offset-4 transition-all"
+            className="text-emerald-800 font-semibold hover:underline underline-offset-4 transition-all"
           >
             Đăng nhập
           </Link>

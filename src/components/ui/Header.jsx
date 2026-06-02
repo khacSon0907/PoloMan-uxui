@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
+import { cartStorage, CART_UPDATED_EVENT } from '../../features/product'
 import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
 
 function getDisplayName(user) {
@@ -21,6 +22,7 @@ function Header() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
+  const [cartCount, setCartCount] = useState(() => cartStorage.getCount())
   const user = authSnapshot.user
   const isAuthInitializing = authSnapshot.isInitializing
   const isAdmin = hasRole(user, 'ADMIN')
@@ -29,13 +31,25 @@ function Header() {
   const isActive = (path) => location.pathname === path
 
   const navClass = (path) =>
-    `relative py-1 whitespace-nowrap transition-colors duration-300 hover:text-black ${
+    `relative py-1 whitespace-nowrap transition-colors duration-300 hover:text-emerald-900 ${
       isActive(path)
-        ? 'text-black after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-full after:bg-black'
-        : 'after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-0 after:bg-black after:transition-all hover:after:w-full'
+        ? 'text-emerald-900 after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-full after:bg-emerald-800'
+        : 'after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:w-0 after:bg-emerald-800 after:transition-all hover:after:w-full'
     }`
 
   useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
+
+  useEffect(() => {
+    const syncCartCount = () => setCartCount(cartStorage.getCount())
+
+    window.addEventListener(CART_UPDATED_EVENT, syncCartCount)
+    window.addEventListener('storage', syncCartCount)
+
+    return () => {
+      window.removeEventListener(CART_UPDATED_EVENT, syncCartCount)
+      window.removeEventListener('storage', syncCartCount)
+    }
+  }, [])
 
   useEffect(() => {
     if (!accountMenuOpen) return undefined
@@ -70,13 +84,13 @@ function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/92 backdrop-blur-md">
       <div className="max-w-[1500px] mx-auto h-18 px-4 sm:h-20 sm:px-6 lg:h-24 lg:px-10">
         <div className="relative flex items-center justify-between h-full">
           <div className="flex min-w-0 flex-1 items-center pr-14 sm:pr-24 lg:pr-6">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="-ml-2 p-2 text-neutral-700 hover:text-black md:hidden"
+              className="-ml-2 p-2 text-emerald-900/70 hover:text-emerald-950 md:hidden"
               aria-label="Toggle Menu"
             >
               <svg className="h-6 w-6 sm:h-7 sm:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,7 +103,7 @@ function Header() {
               </svg>
             </button>
 
-            <nav className="hidden items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-neutral-600 whitespace-nowrap md:flex xl:gap-7 xl:text-[13px] xl:tracking-[0.18em]">
+            <nav className="hidden items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-emerald-900/65 whitespace-nowrap md:flex xl:gap-7 xl:text-[13px] xl:tracking-[0.18em]">
               <Link to="/" className={navClass('/')}>Trang chủ</Link>
               <Link to="/products" className={navClass('/products')}>Sản phẩm</Link>
               <Link to="/collections" className={navClass('/collections')}>Bộ sưu tập</Link>
@@ -99,7 +113,7 @@ function Header() {
 
           <Link
             to="/"
-            className="absolute left-1/2 -translate-x-1/2 text-[1.65rem] font-light tracking-[0.2em] text-black uppercase whitespace-nowrap transition-all duration-300 hover:opacity-75 sm:text-3xl sm:tracking-[0.3em] lg:text-5xl lg:tracking-[0.35em]"
+            className="absolute left-1/2 -translate-x-1/2 text-[1.65rem] font-light tracking-[0.2em] text-emerald-900 uppercase whitespace-nowrap transition-all duration-300 hover:opacity-75 sm:text-3xl sm:tracking-[0.3em] lg:text-5xl lg:tracking-[0.35em]"
           >
             POLOMAN
           </Link>
@@ -111,11 +125,11 @@ function Header() {
                 placeholder="Tìm sản phẩm..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-3 bg-white border border-neutral-200 rounded-md text-sm placeholder-neutral-400 text-neutral-800 outline-none focus:border-black transition-colors"
+                className="w-full h-10 pl-10 pr-3 bg-white border border-emerald-100 rounded-md text-sm placeholder-emerald-900/35 text-emerald-950 outline-none focus:border-emerald-700 transition-colors"
               />
 
               <svg
-                className="absolute left-3 top-3 h-4 w-4 text-neutral-400"
+                className="absolute left-3 top-3 h-4 w-4 text-emerald-700/45"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -129,7 +143,7 @@ function Header() {
               </svg>
             </div>
 
-            <button className="hidden p-2 text-neutral-600 hover:text-black sm:block" aria-label="Favorites">
+            <button className="hidden p-2 text-emerald-900/65 hover:text-emerald-950 sm:block" aria-label="Favorites">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -140,7 +154,7 @@ function Header() {
               </svg>
             </button>
 
-            <button className="relative p-2 text-neutral-600 hover:text-black" aria-label="Shopping Cart">
+            <Link to="/cart" className="relative p-2 text-emerald-900/65 hover:text-emerald-950" aria-label="Shopping Cart">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -150,17 +164,19 @@ function Header() {
                 />
               </svg>
 
-              <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 rounded-full bg-black text-[10px] font-bold text-white flex items-center justify-center">
-                3
-              </span>
-            </button>
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-800 px-1 text-[10px] font-bold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
 
             {authSnapshot.isAuthenticated ? (
               <div ref={accountMenuRef} className="relative hidden sm:block">
                 <button
                   type="button"
                   onClick={() => setAccountMenuOpen((isOpen) => !isOpen)}
-                  className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 text-sm font-semibold text-neutral-900 hover:border-black transition-colors"
+                  className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-emerald-100 bg-emerald-50 text-sm font-semibold text-emerald-900 transition-colors hover:border-emerald-500"
                   aria-label="Tài khoản"
                   aria-expanded={accountMenuOpen}
                 >
@@ -170,18 +186,18 @@ function Header() {
                     getInitial(user)
                   )}
                   {isAuthInitializing && (
-                    <span className="absolute inset-0 rounded-full border-2 border-neutral-300 border-t-black animate-spin" />
+                    <span className="absolute inset-0 rounded-full border-2 border-emerald-200 border-t-emerald-700 animate-spin" />
                   )}
                 </button>
 
                 {accountMenuOpen && (
-                  <div className="absolute right-0 top-12 w-64 rounded-lg border border-neutral-200 bg-white py-2 shadow-lg">
-                    <div className="px-4 py-3 border-b border-neutral-100">
-                      <p className="truncate text-sm font-semibold text-neutral-900">
+                  <div className="absolute right-0 top-12 w-64 overflow-hidden rounded-2xl border border-emerald-100 bg-white/95 py-2 shadow-[0_18px_60px_rgba(20,83,45,0.14)] backdrop-blur">
+                    <div className="border-b border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                      <p className="truncate text-sm font-semibold text-emerald-950">
                         {getDisplayName(user)}
                       </p>
                       {user?.email && (
-                        <p className="mt-1 truncate text-xs text-neutral-500">
+                        <p className="mt-1 truncate text-xs text-emerald-900/55">
                           {user.email}
                         </p>
                       )}
@@ -190,14 +206,14 @@ function Header() {
                     <Link
                       to="/account"
                       onClick={() => setAccountMenuOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                      className="block px-4 py-2.5 text-sm font-medium text-emerald-900/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                     >
                       Tài khoản của tôi
                     </Link>
                     <Link
                       to="/account?tab=orders"
                       onClick={() => setAccountMenuOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                      className="block px-4 py-2.5 text-sm font-medium text-emerald-900/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                     >
                       Đơn hàng
                     </Link>
@@ -205,7 +221,7 @@ function Header() {
                       <Link
                         to="/change-password"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="block px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-black"
+                        className="block px-4 py-2.5 text-sm font-medium text-emerald-900/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                       >
                         Đổi mật khẩu
                       </Link>
@@ -214,7 +230,7 @@ function Header() {
                       <Link
                         to="/admin"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="block px-4 py-2.5 text-sm font-semibold text-neutral-900 hover:bg-neutral-50 hover:text-black"
+                        className="block px-4 py-2.5 text-sm font-semibold text-emerald-950 transition-colors hover:bg-emerald-50"
                       >
                         Quản trị
                       </Link>
@@ -223,7 +239,7 @@ function Header() {
                       type="button"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
                     </button>
@@ -235,12 +251,12 @@ function Header() {
                 className="hidden sm:flex h-10 w-10 items-center justify-center"
                 aria-label="Dang tai tai khoan"
               >
-                <span className="h-6 w-6 rounded-full border-2 border-neutral-300 border-t-black animate-spin" />
+                <span className="h-6 w-6 rounded-full border-2 border-emerald-200 border-t-emerald-700 animate-spin" />
               </span>
             ) : (
               <Link
                 to="/login"
-                className="hidden sm:flex items-center justify-center p-2 text-neutral-600 hover:text-black"
+                className="hidden sm:flex items-center justify-center p-2 text-emerald-900/65 hover:text-emerald-950"
                 aria-label="Đăng nhập"
               >
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -258,18 +274,18 @@ function Header() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="flex flex-col space-y-4 border-t border-neutral-200 bg-white px-4 py-5 text-sm font-semibold uppercase tracking-[0.14em] text-neutral-700 md:hidden">
-          <Link to="/" onClick={() => setMobileMenuOpen(false)} className={isActive('/') ? 'text-black' : ''}>Trang chủ</Link>
-          <Link to="/products" onClick={() => setMobileMenuOpen(false)} className={isActive('/products') ? 'text-black' : ''}>Sản phẩm</Link>
-          <Link to="/collections" onClick={() => setMobileMenuOpen(false)} className={isActive('/collections') ? 'text-black' : ''}>Bộ sưu tập</Link>
-          <Link to="/about" onClick={() => setMobileMenuOpen(false)} className={isActive('/about') ? 'text-black' : ''}>Về chúng tôi</Link>
+        <div className="flex flex-col space-y-4 border-t border-emerald-100 bg-emerald-50/95 px-4 py-5 text-sm font-semibold uppercase tracking-[0.14em] text-emerald-900/70 md:hidden">
+          <Link to="/" onClick={() => setMobileMenuOpen(false)} className={isActive('/') ? 'text-emerald-950' : ''}>Trang chủ</Link>
+          <Link to="/products" onClick={() => setMobileMenuOpen(false)} className={isActive('/products') ? 'text-emerald-950' : ''}>Sản phẩm</Link>
+          <Link to="/collections" onClick={() => setMobileMenuOpen(false)} className={isActive('/collections') ? 'text-emerald-950' : ''}>Bộ sưu tập</Link>
+          <Link to="/about" onClick={() => setMobileMenuOpen(false)} className={isActive('/about') ? 'text-emerald-950' : ''}>Về chúng tôi</Link>
           {authSnapshot.isAuthenticated ? (
             <>
               {isAdmin && (
-                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className={isActive('/admin') ? 'text-black' : ''}>Quản trị</Link>
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className={isActive('/admin') ? 'text-emerald-950' : ''}>Quản trị</Link>
               )}
               {showChangePassword && (
-                <Link to="/change-password" onClick={() => setMobileMenuOpen(false)} className={isActive('/change-password') ? 'text-black' : ''}>Đổi mật khẩu</Link>
+                <Link to="/change-password" onClick={() => setMobileMenuOpen(false)} className={isActive('/change-password') ? 'text-emerald-950' : ''}>Đổi mật khẩu</Link>
               )}
               <button
                 type="button"
@@ -281,7 +297,7 @@ function Header() {
               </button>
             </>
           ) : (
-            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className={isActive('/login') ? 'text-black' : ''}>Đăng nhập</Link>
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className={isActive('/login') ? 'text-emerald-950' : ''}>Đăng nhập</Link>
           )}
         </div>
       )}

@@ -1,9 +1,22 @@
 import { getApiData, http, publicHttp } from '../../../shared/api'
 
+function normalizeProductList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.products)) return data.products
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.content)) return data.content
+
+  return []
+}
+
 export const productApi = {
   async list() {
     const response = await publicHttp.get('/products')
-    return getApiData(response) || []
+    return normalizeProductList(getApiData(response))
+  },
+
+  async getAll() {
+    return productApi.list()
   },
 
   async getById(id) {

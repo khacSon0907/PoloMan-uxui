@@ -1,39 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { productApi } from '../../features/product'
+import {
+  formatCurrency,
+  getProductId,
+  getProductImage,
+  getProductStock,
+  productApi,
+} from '../../features/product'
 import { getApiMessage } from '../../shared/api'
-
-function formatCurrency(value) {
-  const number = Number(value || 0)
-
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(Number.isFinite(number) ? number : 0)
-}
-
-function getProductId(product) {
-  return product?.id || product?._id || product?.slug || product?.name
-}
-
-function getProductImage(product) {
-  const colors = product?.colors || product?.colorVariants || []
-  const firstColor = colors[0]
-  const images = firstColor?.images || product?.images || []
-  const mainImage = images.find((image) => image?.main) || images[0]
-
-  return mainImage?.url || mainImage?.secureUrl || product?.imageUrl || ''
-}
-
-function getProductStock(product) {
-  const colors = product?.colors || product?.colorVariants || []
-
-  return colors.reduce((sum, color) => {
-    const sizes = color?.sizes || color?.sizeVariants || []
-    return sum + sizes.reduce((sizeSum, size) => sizeSum + Number(size?.quantity || 0), 0)
-  }, 0)
-}
 
 function getProductImageCount(product) {
   const colors = product?.colors || product?.colorVariants || []

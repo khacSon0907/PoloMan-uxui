@@ -91,7 +91,6 @@ function Account() {
 
   useEffect(() => {
     if (!avatarPreviewUrl) return undefined
-
     return () => {
       URL.revokeObjectURL(avatarPreviewUrl)
     }
@@ -121,7 +120,6 @@ function Account() {
     if (avatarPreviewUrl) {
       URL.revokeObjectURL(avatarPreviewUrl)
     }
-
     setAvatarFile(null)
     setAvatarPreviewUrl('')
   }
@@ -148,7 +146,6 @@ function Account() {
       return
     }
 
-
     setIsSavingProfile(true)
     setProfileError('')
     setProfileMessage('')
@@ -165,10 +162,7 @@ function Account() {
         }
       }
 
-      const finalPayload = {
-        ...payload,
-        avatarUrl,
-      }
+      const finalPayload = { ...payload, avatarUrl }
       const updateResponse = await userApi.updateMe(finalPayload)
       const updatedUser = getUpdatedUserFromResponse(updateResponse)
       const syncedUser = await userApi.getMe().catch(() => null)
@@ -220,8 +214,9 @@ function Account() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+    <div className="relative mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+      {/* Header card */}
+      <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_12px_40px_rgba(20,83,45,0.08)] sm:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <input
@@ -235,7 +230,7 @@ function Account() {
               type="button"
               onClick={handleAvatarClick}
               disabled={isSavingProfile}
-              className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 text-2xl font-semibold text-neutral-900 shadow-sm transition-colors hover:border-black disabled:cursor-wait disabled:opacity-70 sm:h-24 sm:w-24 sm:text-3xl"
+              className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-semibold text-emerald-700 shadow-sm transition-all hover:border-emerald-500 disabled:cursor-wait disabled:opacity-70 sm:h-24 sm:w-24 sm:text-3xl"
               aria-label="Chọn ảnh đại diện"
               title="Chọn ảnh đại diện"
             >
@@ -245,34 +240,36 @@ function Account() {
                 getInitial(user)
               )}
               {isSavingProfile && (
-                <span className="absolute inset-0 rounded-full border-2 border-neutral-300 border-t-black animate-spin" />
+                <span className="absolute inset-0 rounded-full border-2 border-emerald-200 border-t-emerald-600 animate-spin" />
               )}
             </button>
 
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
                 Tài khoản của tôi
               </p>
-              <h1 className="mt-2 truncate text-2xl font-semibold text-neutral-950 sm:text-3xl">
+              {/* Tên: emerald-800 thay vì emerald-950 */}
+              <h1 className="mt-2 truncate text-2xl font-semibold text-emerald-800 sm:text-3xl">
                 {getDisplayName(user)}
               </h1>
               {user?.email && (
-                <p className="mt-1 truncate text-sm text-neutral-500">{user.email}</p>
+                <p className="mt-1 truncate text-sm text-emerald-600">{user.email}</p>
               )}
               {avatarFile && (
-                <p className="mt-2 text-sm text-neutral-500">Đang xem trước ảnh mới</p>
+                <p className="mt-2 text-sm text-emerald-600">Đang xem trước ảnh mới</p>
               )}
             </div>
           </div>
 
-          <div className="inline-flex w-full rounded-lg border border-neutral-200 bg-neutral-50 p-1 md:w-auto">
+          {/* Tab switcher */}
+          <div className="inline-flex w-full rounded-xl border border-emerald-100 bg-emerald-50 p-1 md:w-auto">
             <button
               type="button"
               onClick={() => setSearchParams({ tab: 'profile' })}
               className={`h-10 flex-1 rounded-md px-3 text-sm font-semibold transition-colors md:flex-none md:px-4 ${
                 activeTab === 'profile'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-neutral-500 hover:text-black'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-emerald-600 hover:text-emerald-800'
               }`}
             >
               Thông tin cá nhân
@@ -282,8 +279,8 @@ function Account() {
               onClick={() => setSearchParams({ tab: 'orders' })}
               className={`h-10 flex-1 rounded-md px-3 text-sm font-semibold transition-colors md:flex-none md:px-4 ${
                 activeTab === 'orders'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-neutral-500 hover:text-black'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-emerald-600 hover:text-emerald-800'
               }`}
             >
               Lịch sử order
@@ -293,11 +290,12 @@ function Account() {
       </div>
 
       {activeTab === 'profile' ? (
-        <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-3 border-b border-neutral-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_12px_40px_rgba(20,83,45,0.08)] sm:p-6">
+          <div className="flex flex-col gap-3 border-b border-emerald-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-950">Thông tin cá nhân</h2>
-              <p className="mt-1 text-sm text-neutral-500">
+              {/* Section title: emerald-800 */}
+              <h2 className="text-lg font-semibold text-emerald-800">Thông tin cá nhân</h2>
+              <p className="mt-1 text-sm text-emerald-500">
                 Cập nhật tên hiển thị, số điện thoại và ảnh đại diện.
               </p>
             </div>
@@ -305,7 +303,7 @@ function Account() {
               <button
                 type="button"
                 onClick={handleStartEditProfile}
-                className="h-10 w-fit rounded-md border border-neutral-200 px-4 text-sm font-semibold text-neutral-900 transition-colors hover:border-black"
+                className="h-10 w-fit rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-700 transition-colors hover:border-emerald-500 hover:text-emerald-800"
               >
                 Chỉnh sửa
               </button>
@@ -315,33 +313,33 @@ function Account() {
           {isEditingProfile ? (
             <form onSubmit={handleProfileSubmit} className="mt-5 grid gap-4 lg:grid-cols-2 lg:gap-x-5">
               <label className="grid gap-2">
-                <span className="text-sm font-medium text-neutral-600">Tên hiển thị</span>
+                <span className="text-sm font-medium text-emerald-700">Tên hiển thị</span>
                 <input
                   name="username"
                   value={profileForm.username}
                   onChange={handleProfileChange}
                   disabled={isSavingProfile}
-                  className="h-11 rounded-md border border-neutral-200 px-3 text-sm text-neutral-950 outline-none transition-colors focus:border-black disabled:bg-neutral-50"
+                  className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none transition-colors focus:border-emerald-600 disabled:bg-emerald-50/60"
                 />
               </label>
               <div className="grid gap-2">
-                <span className="text-sm font-medium text-neutral-600">Email</span>
-                <p className="flex h-11 items-center rounded-md border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
+                <span className="text-sm font-medium text-emerald-700">Email</span>
+                <p className="flex h-11 items-center rounded-md border border-emerald-100 bg-emerald-50/60 px-3 text-sm text-emerald-500">
                   {user?.email || 'Chưa cập nhật'}
                 </p>
               </div>
               <label className="grid gap-2 lg:col-span-2">
-                <span className="text-sm font-medium text-neutral-600">Số điện thoại</span>
+                <span className="text-sm font-medium text-emerald-700">Số điện thoại</span>
                 <input
                   name="phoneNumber"
                   value={profileForm.phoneNumber}
                   onChange={handleProfileChange}
                   disabled={isSavingProfile}
-                  className="h-11 rounded-md border border-neutral-200 px-3 text-sm text-neutral-950 outline-none transition-colors focus:border-black disabled:bg-neutral-50"
+                  className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none transition-colors focus:border-emerald-600 disabled:bg-emerald-50/60"
                 />
               </label>
               {(profileMessage || profileError) && (
-                <p className={`text-sm lg:col-span-2 ${profileError ? 'text-red-600' : 'text-green-700'}`}>
+                <p className={`text-sm lg:col-span-2 ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>
                   {profileError || profileMessage}
                 </p>
               )}
@@ -349,7 +347,7 @@ function Account() {
                 <button
                   type="submit"
                   disabled={isSavingProfile}
-                  className="inline-flex h-10 items-center gap-2 rounded-md bg-black px-4 text-sm font-semibold text-white transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-60"
+                  className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition-opacity hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
                 >
                   {isSavingProfile && (
                     <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
@@ -360,7 +358,7 @@ function Account() {
                   type="button"
                   onClick={handleCancelEditProfile}
                   disabled={isSavingProfile}
-                  className="h-10 rounded-md border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 transition-colors hover:border-black hover:text-black disabled:cursor-wait disabled:opacity-60"
+                  className="h-10 rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-600 transition-colors hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-wait disabled:opacity-60"
                 >
                   Hủy
                 </button>
@@ -369,15 +367,17 @@ function Account() {
           ) : (
             <>
               {(profileMessage || profileError) && (
-                <p className={`mt-5 text-sm ${profileError ? 'text-red-600' : 'text-green-700'}`}>
+                <p className={`mt-5 text-sm ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>
                   {profileError || profileMessage}
                 </p>
               )}
               <div className="mt-5 grid gap-x-8 sm:grid-cols-2">
                 {profileFields.map((field) => (
-                  <div key={field.label} className="border-b border-neutral-100 py-4">
-                    <p className="text-sm font-medium text-neutral-500">{field.label}</p>
-                    <p className="mt-1 break-words text-sm font-medium text-neutral-950">{field.value}</p>
+                  <div key={field.label} className="border-b border-emerald-100 py-4">
+                    {/* Label: emerald-500 */}
+                    <p className="text-sm font-medium text-emerald-500">{field.label}</p>
+                    {/* Value: emerald-800 thay vì emerald-950 */}
+                    <p className="mt-1 break-words text-sm font-medium text-emerald-800">{field.value}</p>
                   </div>
                 ))}
               </div>
@@ -385,20 +385,23 @@ function Account() {
           )}
         </section>
       ) : (
-        <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-lg font-semibold text-neutral-950">Lịch sử order</h2>
-          <div className="mt-5 divide-y divide-neutral-100 border-y border-neutral-100">
+        <section className="mt-6 rounded-lg border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+          <h2 className="text-lg font-semibold text-emerald-800">Lịch sử order</h2>
+          <div className="mt-5 divide-y divide-emerald-100 border-y border-emerald-100">
             {orders.map((order) => (
               <div key={order.id} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto] sm:gap-4 lg:grid-cols-[150px_1fr_140px_160px] lg:items-center">
                 <div>
-                  <p className="text-sm font-semibold text-neutral-950">#{order.id}</p>
-                  <p className="mt-1 text-xs text-neutral-500">{order.date}</p>
+                  {/* Order ID: emerald-800 */}
+                  <p className="text-sm font-semibold text-emerald-800">#{order.id}</p>
+                  <p className="mt-1 text-xs text-emerald-500">{order.date}</p>
                 </div>
-                <p className="text-sm text-neutral-700 sm:col-span-2 lg:col-span-1">{order.items}</p>
-                <span className="w-fit rounded-full border border-neutral-200 px-3 py-1 text-xs font-semibold text-neutral-700">
+                {/* Items text: emerald-600 */}
+                <p className="text-sm text-emerald-600 sm:col-span-2 lg:col-span-1">{order.items}</p>
+                <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                   {order.status}
                 </span>
-                <p className="text-sm font-semibold text-neutral-950 sm:text-right">
+                {/* Total: emerald-800 */}
+                <p className="text-sm font-semibold text-emerald-800 sm:text-right">
                   {formatCurrency(order.total)}
                 </p>
               </div>

@@ -14,6 +14,8 @@ import AdminProducts from "../../pages/admin/AdminProducts";
 import AdminUsers from "../../pages/admin/AdminUsers";
 import Home from "../../pages/Home";
 
+import Cart from "../../pages/Cart";
+import ProductDetail from "../../pages/ProductDetail";
 import Products from "../../pages/Products";
 import Login from "../../pages/Login";
 import Register from "../../pages/Register";
@@ -39,8 +41,16 @@ export const router = createBrowserRouter([
         element: <Products />,
       },
       {
+        path: "products/:id",
+        element: <ProductDetail />,
+      },
+      {
         path: "collections",
         element: <Products />,
+      },
+      {
+        path: "cart",
+        element: <Cart />,
       },
       {
         path: "account",

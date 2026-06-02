@@ -70,16 +70,18 @@ function Login() {
   }
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 sm:py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-10 text-center">
+    <div className="relative -mx-4 flex min-h-[82vh] items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#fbfdf8_0%,#eef7ec_52%,#ffffff_100%)] px-4 py-10 sm:-mx-6 sm:py-14 lg:-mx-10">
+      <div className="absolute -left-20 top-16 h-64 w-64 rounded-full bg-emerald-100/70 blur-3xl" />
+      <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-lime-100/70 blur-3xl" />
+      <div className="relative w-full max-w-md rounded-3xl border border-emerald-100 bg-white/88 p-6 shadow-[0_24px_80px_rgba(20,83,45,0.12)] backdrop-blur sm:p-8">
+        <div className="mb-8 text-center">
           <Link
             to="/"
-            className="inline-block text-3xl font-light uppercase tracking-[0.22em] text-black transition-all duration-300 hover:opacity-75 sm:text-4xl sm:tracking-[0.35em]"
+            className="inline-block text-3xl font-light uppercase tracking-[0.22em] text-emerald-900 transition-all duration-300 hover:opacity-75 sm:text-4xl sm:tracking-[0.35em]"
           >
             POLOMAN
           </Link>
-          <p className="mt-3 text-sm tracking-wide text-neutral-500">
+          <p className="mt-3 text-sm tracking-wide text-emerald-900/60">
             Đăng nhập hoặc tạo tài khoản
           </p>
         </div>
@@ -87,7 +89,7 @@ function Login() {
         <button
           type="button"
           onClick={handleGoogleLogin}
-          className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-lg border border-neutral-300 bg-white text-sm font-medium text-neutral-700 transition-all duration-300 hover:border-black hover:shadow-sm"
+          className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 text-sm font-semibold text-emerald-950 transition-all duration-300 hover:border-emerald-300 hover:bg-white hover:shadow-sm"
         >
           <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -112,10 +114,10 @@ function Login() {
 
         <div className="relative my-8">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-neutral-200" />
+            <div className="w-full border-t border-emerald-100" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-4 text-xs uppercase tracking-widest text-neutral-400">
+            <span className="bg-white px-4 text-xs uppercase tracking-widest text-emerald-900/35">
               hoặc
             </span>
           </div>
@@ -146,11 +148,11 @@ function Login() {
               }}
               required
               placeholder=" "
-              className="peer h-13 w-full rounded-lg border border-neutral-300 bg-white px-4 pb-2 pt-5 text-sm text-neutral-900 outline-none transition-all duration-300 focus:border-black"
+              className="peer h-13 w-full rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 pb-2 pt-5 text-sm text-emerald-950 outline-none transition-all duration-300 focus:border-emerald-700 focus:bg-white"
             />
             <label
               htmlFor="login-email"
-              className="absolute left-4 top-2 text-[11px] uppercase tracking-wider text-neutral-400 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] uppercase tracking-wider text-emerald-900/45 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-emerald-800"
             >
               Email
             </label>
@@ -168,18 +170,18 @@ function Login() {
               }}
               required
               placeholder=" "
-              className="peer h-13 w-full rounded-lg border border-neutral-300 bg-white px-4 pb-2 pt-5 pr-12 text-sm text-neutral-900 outline-none transition-all duration-300 focus:border-black"
+              className="peer h-13 w-full rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 pb-2 pt-5 pr-12 text-sm text-emerald-950 outline-none transition-all duration-300 focus:border-emerald-700 focus:bg-white"
             />
             <label
               htmlFor="login-password"
-              className="absolute left-4 top-2 text-[11px] uppercase tracking-wider text-neutral-400 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-black"
+              className="absolute left-4 top-2 text-[11px] uppercase tracking-wider text-emerald-900/45 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-wider peer-focus:text-emerald-800"
             >
               Mật khẩu
             </label>
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 transition-colors hover:text-black"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-900/45 transition-colors hover:text-emerald-900"
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
               {showPassword ? (
@@ -198,7 +200,7 @@ function Login() {
           <div className="flex justify-end">
             <Link
               to="/forgot-password"
-              className="text-xs text-neutral-500 underline underline-offset-4 transition-colors hover:text-black"
+              className="text-xs text-emerald-900/60 underline underline-offset-4 transition-colors hover:text-emerald-900"
             >
               Quên mật khẩu?
             </Link>
@@ -207,7 +209,7 @@ function Login() {
           <button
             type="submit"
             disabled={isLoading}
-            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-black text-sm font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-widest"
+            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-emerald-800 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-sm transition-all duration-300 hover:bg-emerald-900 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-widest"
           >
             {isLoading ? (
               <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -220,23 +222,23 @@ function Login() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-neutral-500">
+        <p className="mt-8 text-center text-sm text-emerald-900/60">
           Chưa có tài khoản?{' '}
           <Link
             to="/register"
-            className="font-semibold text-black transition-all hover:underline underline-offset-4"
+            className="font-semibold text-emerald-800 transition-all hover:underline underline-offset-4"
           >
             Đăng ký ngay
           </Link>
         </p>
 
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-neutral-400">
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-emerald-900/40">
           Bằng cách tiếp tục, bạn đồng ý với{' '}
-          <a href="/terms" className="underline underline-offset-2 transition-colors hover:text-black">
+          <a href="/terms" className="underline underline-offset-2 transition-colors hover:text-emerald-900">
             Điều khoản dịch vụ
           </a>{' '}
           và{' '}
-          <a href="/privacy" className="underline underline-offset-2 transition-colors hover:text-black">
+          <a href="/privacy" className="underline underline-offset-2 transition-colors hover:text-emerald-900">
             Chính sách bảo mật
           </a>{' '}
           của chúng tôi.

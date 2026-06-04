@@ -33,4 +33,9 @@ export const productApi = {
     const response = await http.post('/products', payload)
     return getApiData(response)
   },
+
+  async update(id, payload) {
+    const response = await http.put(`/products/${id}`, payload)
+    return getApiData(response)
+  },
 }

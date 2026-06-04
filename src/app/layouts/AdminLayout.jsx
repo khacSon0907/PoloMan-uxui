@@ -31,13 +31,13 @@ function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-950">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-neutral-200 bg-white lg:flex lg:flex-col">
-        <div className="border-b border-neutral-200 px-6 py-6">
-          <Link to="/admin" className="block text-2xl font-light tracking-[0.28em] uppercase">
+    <div className="min-h-screen bg-emerald-50/45 text-neutral-950">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-emerald-800/20 bg-emerald-950 text-white lg:flex lg:flex-col">
+        <div className="border-b border-white/10 px-6 py-6">
+          <Link to="/admin" className="block text-2xl font-light tracking-[0.28em] uppercase text-white">
             POLOMAN
           </Link>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/75">
             Admin console
           </p>
         </div>
@@ -51,8 +51,8 @@ function AdminLayout() {
               className={({ isActive }) =>
                 `mb-1 flex h-11 items-center rounded-md px-3 text-sm font-semibold transition-colors ${
                   isActive
-                    ? 'bg-black text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-black'
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'text-emerald-50/80 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
@@ -61,10 +61,10 @@ function AdminLayout() {
           ))}
         </nav>
 
-        <div className="border-t border-neutral-200 p-4">
+        <div className="border-t border-white/10 p-4">
           <Link
             to="/"
-            className="flex h-10 items-center rounded-md px-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-100 hover:text-black"
+            className="flex h-10 items-center rounded-md px-3 text-sm font-semibold text-emerald-50/80 hover:bg-white/10 hover:text-white"
           >
             Xem website
           </Link>
@@ -88,14 +88,14 @@ function AdminLayout() {
               </div>
               <Link
                 to="/"
-                className="hidden h-10 items-center rounded-md border border-neutral-200 px-3 text-sm font-semibold text-neutral-700 hover:border-black hover:text-black sm:flex"
+                className="hidden h-10 items-center rounded-md border border-emerald-200 px-3 text-sm font-semibold text-emerald-800 hover:border-emerald-600 hover:text-emerald-700 sm:flex"
               >
                 Website
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="h-10 shrink-0 rounded-md bg-black px-3 text-sm font-semibold text-white hover:bg-neutral-800 sm:px-4"
+                className="h-10 shrink-0 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 sm:px-4"
               >
                 Dang xuat
               </button>
@@ -110,7 +110,7 @@ function AdminLayout() {
                 end={item.to === '/admin'}
                 className={({ isActive }) =>
                   `whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold ${
-                    isActive ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-600'
+                    isActive ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800'
                   }`
                 }
               >

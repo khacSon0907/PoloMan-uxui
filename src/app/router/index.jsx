@@ -103,7 +103,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "products/:id/edit",
-            element: <AdminPlaceholder title="Cap nhat san pham" />,
+            element: <AdminProductCreate />,
           },
           {
             path: "banners",

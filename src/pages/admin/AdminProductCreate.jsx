@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { categoryApi } from "../../features/category";
-import { productApi } from "../../features/product";
+import {
+  getImageUrl,
+  getProductColorCode,
+  getProductColorId,
+  getProductColorName,
+  getProductColors,
+  getProductImages,
+  getProductSizes,
+  productApi,
+} from "../../features/product";
 import { getApiMessage } from "../../shared/api";
 import { uploadImageToCloudinary } from "../../shared/services/cloudinaryUpload";
 
@@ -14,10 +23,14 @@ const emptySize = {
 
 function createEmptyColor() {
   return {
+    id: "",
     colorName: "",
     colorCode: "#111111",
+    existingMainImage: null,
+    existingMainImagePreview: "",
     mainImageFile: null,
     mainImagePreview: "",
+    existingSubImages: [],
     subImageFiles: [],
     subImagePreviews: [],
     sizes: [{ ...emptySize }],
@@ -35,23 +48,87 @@ const initialForm = {
   colors: [createEmptyColor()],
 };
 
+function revokePreviewUrl(previewUrl) {
+  if (previewUrl?.startsWith("blob:")) {
+    URL.revokeObjectURL(previewUrl);
+  }
+}
+
 function revokeColorPreviews(colors) {
   colors.forEach((color) => {
-    if (color.mainImagePreview) {
-      URL.revokeObjectURL(color.mainImagePreview);
-    }
+    revokePreviewUrl(color.mainImagePreview);
 
-    color.subImagePreviews?.forEach((previewUrl) =>
-      URL.revokeObjectURL(previewUrl),
-    );
+    color.subImagePreviews?.forEach(revokePreviewUrl);
   });
+}
+
+function getEntityId(entity) {
+  return entity?.id || entity?._id || "";
+}
+
+function normalizeExistingImage(image, options = {}) {
+  return {
+    id: getEntityId(image),
+    url: getImageUrl(image),
+    publicId: image?.publicId || image?.public_id || "",
+    main: options.main ?? Boolean(image?.main),
+    sortOrder: options.sortOrder ?? Number(image?.sortOrder || 0),
+  };
+}
+
+function mapProductToForm(product) {
+  const colors = getProductColors(product);
+
+  return {
+    name: product?.name || "",
+    slug: product?.slug || "",
+    categoryId: product?.category?.id || product?.category?._id || product?.categoryId || "",
+    description: product?.description || "",
+    price: product?.price ?? "",
+    salePrice: product?.salePrice ?? "",
+    active: product?.active !== false,
+    colors: colors.length
+      ? colors.map((color) => {
+          const images = getProductImages(product, color)
+            .map((image, index) => normalizeExistingImage(image, { sortOrder: image?.sortOrder ?? index }))
+            .filter((image) => image.url);
+          const mainImage = images.find((image) => image.main) || images[0] || null;
+          const subImages = images.filter((image) => image !== mainImage);
+          const sizes = getProductSizes(product, color);
+
+          return {
+            id: getProductColorId(color),
+            colorName: getProductColorName(color),
+            colorCode: getProductColorCode(color) || "#111111",
+            existingMainImage: mainImage,
+            existingMainImagePreview: mainImage?.url || "",
+            mainImageFile: null,
+            mainImagePreview: "",
+            existingSubImages: subImages,
+            subImageFiles: [],
+            subImagePreviews: [],
+            sizes: sizes.length
+              ? sizes.map((size) => ({
+                  id: getEntityId(size),
+                  size: size?.size || size?.sizeName || size?.name || "",
+                  sku: size?.sku || "",
+                  quantity: size?.quantity ?? 0,
+                }))
+              : [{ ...emptySize }],
+          };
+        })
+      : [createEmptyColor()],
+  };
 }
 
 function AdminProductCreate() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const formColorsRef = useRef(initialForm.colors);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(initialForm);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(isEditMode);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -84,6 +161,36 @@ function AdminProductCreate() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isEditMode) return undefined;
+
+    let isMounted = true;
+
+    productApi
+      .getById(id)
+      .then((product) => {
+        if (isMounted) {
+          setForm(mapProductToForm(product));
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setErrorMessage(
+            getApiMessage(error, "Khong the tai thong tin san pham."),
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingProduct(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, isEditMode]);
 
   useEffect(() => {
     formColorsRef.current = form.colors;
@@ -192,12 +299,12 @@ function AdminProductCreate() {
       colors: current.colors.map((color, index) => {
         if (index !== colorIndex) return color;
 
-        if (color.mainImagePreview) {
-          URL.revokeObjectURL(color.mainImagePreview);
-        }
+        revokePreviewUrl(color.mainImagePreview);
 
         return {
           ...color,
+          existingMainImage: null,
+          existingMainImagePreview: "",
           mainImageFile: file,
           mainImagePreview: URL.createObjectURL(file),
         };
@@ -213,12 +320,12 @@ function AdminProductCreate() {
       colors: current.colors.map((color, index) => {
         if (index !== colorIndex) return color;
 
-        if (color.mainImagePreview) {
-          URL.revokeObjectURL(color.mainImagePreview);
-        }
+        revokePreviewUrl(color.mainImagePreview);
 
         return {
           ...color,
+          existingMainImage: null,
+          existingMainImagePreview: "",
           mainImageFile: null,
           mainImagePreview: "",
         };
@@ -262,9 +369,7 @@ function AdminProductCreate() {
 
         const removedPreview = color.subImagePreviews[imageIndex];
 
-        if (removedPreview) {
-          URL.revokeObjectURL(removedPreview);
-        }
+        revokePreviewUrl(removedPreview);
 
         return {
           ...color,
@@ -272,6 +377,22 @@ function AdminProductCreate() {
             (_, nestedIndex) => nestedIndex !== imageIndex,
           ),
           subImagePreviews: color.subImagePreviews.filter(
+            (_, nestedIndex) => nestedIndex !== imageIndex,
+          ),
+        };
+      }),
+    }));
+  };
+
+  const removeExistingSubImage = (colorIndex, imageIndex) => {
+    setForm((current) => ({
+      ...current,
+      colors: current.colors.map((color, index) => {
+        if (index !== colorIndex) return color;
+
+        return {
+          ...color,
+          existingSubImages: color.existingSubImages.filter(
             (_, nestedIndex) => nestedIndex !== imageIndex,
           ),
         };
@@ -290,7 +411,7 @@ function AdminProductCreate() {
 
     for (const color of form.colors) {
       if (!color.colorName.trim()) return "Ten mau khong duoc de trong.";
-      if (!color.mainImageFile)
+      if (!color.mainImageFile && !color.existingMainImagePreview)
         return `Mau ${color.colorName.trim() || "san pham"} can co anh chinh.`;
       if (!color.sizes.length) return "Moi mau can it nhat mot size.";
 
@@ -323,25 +444,39 @@ function AdminProductCreate() {
   const buildPayload = async () => {
     const colors = await Promise.all(
       form.colors.map(async (color) => {
-        const mainImage = await uploadProductImage(color.mainImageFile, {
-          main: true,
-          sortOrder: 0,
-        });
+        const mainImage = color.mainImageFile
+          ? await uploadProductImage(color.mainImageFile, {
+              main: true,
+              sortOrder: 0,
+            })
+          : color.existingMainImage
+            ? { ...color.existingMainImage, main: true, sortOrder: 0 }
+            : null;
 
         const subImages = await Promise.all(
           color.subImageFiles.map((file, index) =>
             uploadProductImage(file, {
               main: false,
-              sortOrder: index + 1,
+              sortOrder: color.existingSubImages.length + index + 1,
             }),
           ),
         );
 
         return {
+          id: color.id || undefined,
           colorName: color.colorName.trim(),
           colorCode: color.colorCode || "",
-          images: [mainImage, ...subImages],
+          images: [
+            mainImage,
+            ...color.existingSubImages.map((image, index) => ({
+              ...image,
+              main: false,
+              sortOrder: index + 1,
+            })),
+            ...subImages,
+          ].filter(Boolean),
           sizes: color.sizes.map((size) => ({
+            id: size.id || undefined,
             size: size.size.trim(),
             sku: size.sku.trim(),
             quantity: Number(size.quantity || 0),
@@ -378,17 +513,38 @@ function AdminProductCreate() {
 
     try {
       const payload = await buildPayload();
-      await productApi.create(payload);
+      if (isEditMode) {
+        await productApi.update(id, payload);
+      } else {
+        await productApi.create(payload);
+      }
       revokeColorPreviews(form.colors);
-      setForm(initialForm);
-      setSuccessMessage("Tao san pham thanh cong.");
+      if (!isEditMode) {
+        setForm(initialForm);
+      }
+      setSuccessMessage(
+        isEditMode ? "Cap nhat san pham thanh cong." : "Tao san pham thanh cong.",
+      );
       navigate("/admin/products", { replace: true });
     } catch (error) {
-      setErrorMessage(getApiMessage(error, "Tao san pham that bai."));
+      setErrorMessage(
+        getApiMessage(
+          error,
+          isEditMode ? "Cap nhat san pham that bai." : "Tao san pham that bai.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoadingProduct) {
+    return (
+      <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm font-semibold text-neutral-500">
+        Dang tai thong tin san pham...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -399,11 +555,12 @@ function AdminProductCreate() {
               Product setup
             </p>
             <h2 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
-              Tao san pham moi
+              {isEditMode ? "Cap nhat san pham" : "Tao san pham moi"}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-              Nhap thong tin co ban, them mau, size, anh chinh va nhieu anh phu
-              cho tung mau.
+              {isEditMode
+                ? "Chinh sua thong tin co ban, mau, size, ton kho va hinh anh san pham."
+                : "Nhap thong tin co ban, them mau, size, anh chinh va nhieu anh phu cho tung mau."}
             </p>
           </div>
           <Link
@@ -647,6 +804,24 @@ function AdminProductCreate() {
                             Xoa
                           </button>
                         </>
+                      ) : color.existingMainImagePreview ? (
+                        <>
+                          <img
+                            src={color.existingMainImagePreview}
+                            alt=""
+                            className="aspect-square w-full object-cover"
+                          />
+                          <span className="absolute left-2 top-2 rounded bg-black px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white">
+                            Main
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => clearMainImage(colorIndex)}
+                            className="absolute right-2 top-2 rounded bg-white px-2 py-1 text-xs font-semibold text-red-600 shadow-sm"
+                          >
+                            Xoa
+                          </button>
+                        </>
                       ) : (
                         <div className="flex aspect-square items-center justify-center px-4 text-center text-sm font-semibold text-neutral-400">
                           Chua chon anh chinh
@@ -676,8 +851,32 @@ function AdminProductCreate() {
                       )}
                     </label>
 
-                    {color.subImagePreviews.length > 0 ? (
+                    {color.existingSubImages.length > 0 || color.subImagePreviews.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+                        {color.existingSubImages.map((image, imageIndex) => (
+                          <div
+                            key={`${image.id || image.url}-${imageIndex}`}
+                            className="relative aspect-square overflow-hidden rounded-md border border-neutral-200 bg-neutral-100"
+                          >
+                            <img
+                              src={image.url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                            <span className="absolute left-1 top-1 rounded bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-700">
+                              Cu {imageIndex + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeExistingSubImage(colorIndex, imageIndex)
+                              }
+                              className="absolute right-1 top-1 rounded bg-white px-2 py-1 text-[10px] font-bold text-red-600"
+                            >
+                              Xoa
+                            </button>
+                          </div>
+                        ))}
                         {color.subImagePreviews.map(
                           (previewUrl, previewIndex) => (
                             <div
@@ -827,7 +1026,13 @@ function AdminProductCreate() {
                 disabled={isSubmitting}
                 className="h-11 rounded-md bg-emerald-600 px-5 text-sm font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Dang upload va tao..." : "Tao san pham"}
+                {isSubmitting
+                  ? isEditMode
+                    ? "Dang upload va cap nhat..."
+                    : "Dang upload va tao..."
+                  : isEditMode
+                    ? "Cap nhat san pham"
+                    : "Tao san pham"}
               </button>
             </div>
           </div>

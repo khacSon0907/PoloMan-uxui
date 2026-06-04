@@ -140,7 +140,7 @@ function AdminProducts() {
           </div>
         ) : products.length ? (
           <div className="overflow-x-auto">
-            <table className="min-w-[980px] w-full text-left">
+            <table className="w-full min-w-[1080px] text-left">
               <thead className="border-b border-neutral-100 bg-neutral-50 text-xs font-bold uppercase tracking-[0.14em] text-neutral-500">
                 <tr>
                   <th className="px-5 py-3">San pham</th>
@@ -149,7 +149,7 @@ function AdminProducts() {
                   <th className="px-5 py-3">Anh</th>
                   <th className="px-5 py-3">Ton kho</th>
                   <th className="px-5 py-3">Trang thai</th>
-                  <th className="px-5 py-3 text-right">Thao tac</th>
+                  <th className="w-40 px-5 py-3 text-right">Thao tac</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -160,7 +160,7 @@ function AdminProducts() {
                   return (
                     <tr
                       key={productId}
-                      className="bg-white hover:bg-neutral-50"
+                      className="bg-white transition-colors hover:bg-emerald-50/45"
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
@@ -177,10 +177,10 @@ function AdminProducts() {
                               </span>
                             )}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <Link
                               to={`/admin/products/${productId}`}
-                              className="font-semibold text-neutral-950 hover:underline"
+                              className="line-clamp-2 font-semibold text-neutral-950 hover:text-emerald-700"
                             >
                               {product.name}
                             </Link>
@@ -192,11 +192,13 @@ function AdminProducts() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-neutral-500">
-                        {product.category?.name ||
-                          product.categoryName ||
-                          product.categoryId ||
-                          "-"}
+                      <td className="max-w-[220px] px-5 py-4 text-sm font-semibold text-neutral-500">
+                        <span className="line-clamp-2 break-all">
+                          {product.category?.name ||
+                            product.categoryName ||
+                            product.categoryId ||
+                            "-"}
+                        </span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="text-sm font-semibold text-neutral-950">
@@ -226,16 +228,16 @@ function AdminProducts() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                           <Link
                             to={`/admin/products/${productId}`}
-                            className="flex h-9 items-center rounded-md border border-neutral-200 px-3 text-sm font-semibold text-neutral-700 hover:border-emerald-600 hover:text-emerald-600"
+                            className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-200 bg-white px-2.5 text-xs font-bold text-emerald-700 hover:border-emerald-500 hover:bg-emerald-50"
                           >
                             Chi tiet
                           </Link>
                           <Link
                             to={`/admin/products/${productId}/edit`}
-                            className="flex h-9 items-center rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                            className="inline-flex h-8 items-center justify-center rounded-md bg-emerald-600 px-2.5 text-xs font-bold text-white hover:bg-emerald-700"
                           >
                             Update
                           </Link>

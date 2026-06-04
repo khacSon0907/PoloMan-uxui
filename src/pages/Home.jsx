@@ -81,23 +81,24 @@ function Home() {
 
   return (
     <div className="space-y-12 pb-8 sm:space-y-16 sm:pb-10 lg:space-y-20 lg:pb-12">
-      <section className="relative -mx-4 overflow-hidden sm:-mx-6 lg:-mx-10">
+      <section className="relative -mx-4 overflow-hidden bg-white sm:-mx-6 lg:-mx-10">
         <img
           src={heroBanner.imageUrl}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(246,250,244,0.96)_0%,rgba(246,250,244,0.84)_42%,rgba(246,250,244,0.18)_100%)]" />
-        <div className="relative mx-auto flex min-h-[520px] max-w-[1500px] items-center px-4 py-14 sm:px-6 lg:px-10">
-          <div className="max-w-xl space-y-5 text-center md:text-left lg:space-y-6">
-            <span className="inline-flex rounded-full border border-emerald-200 bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-900 shadow-sm">
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.70)_0%,rgba(255,255,255,0.36)_36%,rgba(255,255,255,0.05)_68%,rgba(255,255,255,0)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white/35 to-transparent" />
+        <div className="relative mx-auto flex min-h-[560px] max-w-[1500px] items-center px-4 py-14 sm:px-6 lg:min-h-[680px] lg:px-10">
+          <div className="max-w-xl space-y-5 text-center drop-shadow-[0_2px_10px_rgba(255,255,255,0.55)] md:text-left lg:space-y-6">
+            <span className="inline-flex rounded-full border border-emerald-800/45 bg-white/55 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-950 shadow-sm backdrop-blur-[2px]">
               {heroBanner.title}
             </span>
             <h1 className="font-sans text-4xl font-extrabold uppercase leading-tight tracking-tight text-emerald-950 sm:text-5xl lg:text-7xl">
               Nang tam <br />
-              <span className="text-emerald-700">phong thai</span>
+              <span className="text-emerald-800">phong thai</span>
             </h1>
-            <p className="mx-auto max-w-md text-sm leading-6 text-emerald-950/70 md:mx-0">
+            <p className="mx-auto max-w-md text-sm font-medium leading-6 text-emerald-950/78 md:mx-0">
               {heroBanner.subtitle}
             </p>
             <div className="flex flex-col items-stretch justify-center gap-3 pt-1 sm:flex-row sm:items-center md:justify-start">
@@ -109,7 +110,7 @@ function Home() {
               </Link>
               <Link
                 to="/collections"
-                className="w-full rounded-md border border-emerald-800/30 bg-white/75 px-8 py-3 text-center text-xs font-bold uppercase tracking-wider text-emerald-900 shadow-sm transition-all hover:bg-white active:scale-[0.98] sm:w-auto"
+                className="w-full rounded-md border border-emerald-800/45 bg-white/65 px-8 py-3 text-center text-xs font-bold uppercase tracking-wider text-emerald-950 shadow-sm backdrop-blur-[2px] transition-all hover:bg-white active:scale-[0.98] sm:w-auto"
               >
                 Xem BST moi
               </Link>

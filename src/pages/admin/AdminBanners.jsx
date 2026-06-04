@@ -441,8 +441,8 @@ function AdminBanners() {
                     alt=""
                     className="h-full w-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/38 via-black/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/35 to-transparent p-5 text-white">
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/65">
                       PoloMan
                     </p>

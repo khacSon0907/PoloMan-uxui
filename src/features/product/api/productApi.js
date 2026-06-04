@@ -24,6 +24,11 @@ export const productApi = {
     return getApiData(response)
   },
 
+  async getByCategoryId(categoryId) {
+    const response = await publicHttp.get(`/products/category/${categoryId}`)
+    return normalizeProductList(getApiData(response))
+  },
+
   async create(payload) {
     const response = await http.post('/products', payload)
     return getApiData(response)

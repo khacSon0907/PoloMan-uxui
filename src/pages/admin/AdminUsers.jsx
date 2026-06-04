@@ -132,7 +132,7 @@ function AdminUsers() {
             type="button"
             onClick={loadUsers}
             disabled={isLoading}
-            className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-600 hover:border-black hover:text-black disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-600 hover:border-emerald-600 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             Tai lai
           </button>
@@ -140,7 +140,7 @@ function AdminUsers() {
 
         {isLoading ? (
           <div className="flex min-h-48 items-center justify-center">
-            <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-black" />
+            <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-600" />
           </div>
         ) : users.length ? (
           <div className="overflow-x-auto">

@@ -1,9 +1,59 @@
-const CART_KEY = 'poloman_cart'
+const CART_KEY = 'poloman_guest_cart'
+const LEGACY_CART_KEY = 'poloman_cart'
+const CART_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 export const CART_UPDATED_EVENT = 'poloman-cart-updated'
 
-function readRawCart() {
+function canUseBrowserStorage() {
+  return typeof window !== 'undefined' && typeof document !== 'undefined'
+}
+
+function readCookie(name) {
+  if (!canUseBrowserStorage()) return ''
+
+  const cookie = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(`${name}=`))
+
+  return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : ''
+}
+
+function writeCookie(name, value) {
+  if (!canUseBrowserStorage()) return
+
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${CART_MAX_AGE_SECONDS}; Path=/; SameSite=Lax`
+}
+
+function deleteCookie(name) {
+  if (!canUseBrowserStorage()) return
+
+  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`
+}
+
+function readLegacyCart() {
   try {
-    const value = window.localStorage.getItem(CART_KEY)
+    const value = window.localStorage.getItem(LEGACY_CART_KEY)
+    const parsed = value ? JSON.parse(value) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function migrateLegacyCartToCookie() {
+  if (!canUseBrowserStorage() || readCookie(CART_KEY)) return
+
+  const legacyItems = readLegacyCart()
+
+  if (legacyItems.length) {
+    writeCookie(CART_KEY, JSON.stringify(legacyItems))
+  }
+}
+
+function readRawCart() {
+  migrateLegacyCartToCookie()
+
+  try {
+    const value = readCookie(CART_KEY)
     const parsed = value ? JSON.parse(value) : []
     return Array.isArray(parsed) ? parsed : []
   } catch {
@@ -12,8 +62,11 @@ function readRawCart() {
 }
 
 function writeCart(items) {
-  window.localStorage.setItem(CART_KEY, JSON.stringify(items))
-  window.dispatchEvent(new Event(CART_UPDATED_EVENT))
+  writeCookie(CART_KEY, JSON.stringify(items))
+
+  if (canUseBrowserStorage()) {
+    window.dispatchEvent(new Event(CART_UPDATED_EVENT))
+  }
 }
 
 export const cartStorage = {
@@ -60,6 +113,10 @@ export const cartStorage = {
   },
 
   clear() {
-    writeCart([])
+    deleteCookie(CART_KEY)
+
+    if (canUseBrowserStorage()) {
+      window.dispatchEvent(new Event(CART_UPDATED_EVENT))
+    }
   },
 }

@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { cartStorage, CART_UPDATED_EVENT, formatCurrency } from '../features/product'
+import {
+  cartApi,
+  cartStorage,
+  CART_UPDATED_EVENT,
+  formatCurrency,
+  getUserId,
+  normalizeCartItems,
+} from '../features/product'
+import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
 function Cart() {
   const [items, setItems] = useState(() => cartStorage.getItems())
+  const [errorMessage, setErrorMessage] = useState('')
+  const userId = getUserId(tokenStorage.getUser())
 
   usePageMeta({
     title: 'Gio hang cua ban | PoloMan',
@@ -14,7 +24,22 @@ function Cart() {
   })
 
   useEffect(() => {
-    const syncCart = () => setItems(cartStorage.getItems())
+    const syncCart = async () => {
+      if (!userId) {
+        setItems(cartStorage.getItems())
+        return
+      }
+
+      try {
+        const cart = await cartApi.getCart(userId)
+        setItems(normalizeCartItems(cart))
+        setErrorMessage('')
+      } catch (error) {
+        setErrorMessage(getApiMessage(error, 'Khong the tai gio hang.'))
+      }
+    }
+
+    syncCart()
 
     window.addEventListener(CART_UPDATED_EVENT, syncCart)
     window.addEventListener('storage', syncCart)
@@ -23,7 +48,7 @@ function Cart() {
       window.removeEventListener(CART_UPDATED_EVENT, syncCart)
       window.removeEventListener('storage', syncCart)
     }
-  }, [])
+  }, [userId])
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
@@ -33,14 +58,50 @@ function Cart() {
   const discount = subtotal >= 799000 ? 50000 : subtotal >= 499000 ? 20000 : 0
   const total = Math.max(0, subtotal + shippingFee - discount)
 
-  const handleQuantityChange = (index, quantity) => {
-    cartStorage.updateQuantity(index, quantity)
-    setItems(cartStorage.getItems())
+  const handleQuantityChange = async (index, quantity) => {
+    const item = items[index]
+    const nextQuantity = Math.max(1, Number(quantity || 1))
+
+    if (!item) return
+
+    if (!userId) {
+      cartStorage.updateQuantity(index, nextQuantity)
+      setItems(cartStorage.getItems())
+      return
+    }
+
+    try {
+      const cart = await cartApi.updateItem(userId, item.productId, {
+        productId: item.productId,
+        colorId: item.colorId,
+        sizeId: item.sizeId,
+        quantity: nextQuantity,
+      })
+      setItems(normalizeCartItems(cart))
+      setErrorMessage('')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the cap nhat gio hang.'))
+    }
   }
 
-  const handleRemove = (index) => {
-    cartStorage.removeItem(index)
-    setItems(cartStorage.getItems())
+  const handleRemove = async (index) => {
+    const item = items[index]
+
+    if (!item) return
+
+    if (!userId) {
+      cartStorage.removeItem(index)
+      setItems(cartStorage.getItems())
+      return
+    }
+
+    try {
+      const cart = await cartApi.removeItem(userId, item.productId)
+      setItems(normalizeCartItems(cart))
+      setErrorMessage('')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the xoa san pham khoi gio hang.'))
+    }
   }
 
   return (
@@ -119,6 +180,12 @@ function Cart() {
           {subtotal > 0 && subtotal < 399000 && (
             <div className="rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white shadow-sm">
               Mua them {formatCurrency(399000 - subtotal)} de duoc freeship
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {errorMessage}
             </div>
           )}
 

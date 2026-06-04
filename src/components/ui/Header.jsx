@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
-import { cartStorage, CART_UPDATED_EVENT } from '../../features/product'
+import { cartApi, cartStorage, CART_UPDATED_EVENT, getUserId } from '../../features/product'
 import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
 
 function getDisplayName(user) {
@@ -24,6 +24,7 @@ function Header() {
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [cartCount, setCartCount] = useState(() => cartStorage.getCount())
   const user = authSnapshot.user
+  const userId = getUserId(user)
   const isAuthInitializing = authSnapshot.isInitializing
   const isAdmin = hasRole(user, 'ADMIN')
   const showChangePassword = canChangePassword(user)
@@ -40,7 +41,21 @@ function Header() {
   useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
 
   useEffect(() => {
-    const syncCartCount = () => setCartCount(cartStorage.getCount())
+    const syncCartCount = async () => {
+      if (!userId) {
+        setCartCount(cartStorage.getCount())
+        return
+      }
+
+      try {
+        const cart = await cartApi.getCart(userId)
+        setCartCount(Number(cart?.totalQuantity || 0))
+      } catch {
+        setCartCount(0)
+      }
+    }
+
+    syncCartCount()
 
     window.addEventListener(CART_UPDATED_EVENT, syncCartCount)
     window.addEventListener('storage', syncCartCount)
@@ -49,7 +64,7 @@ function Header() {
       window.removeEventListener(CART_UPDATED_EVENT, syncCartCount)
       window.removeEventListener('storage', syncCartCount)
     }
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     if (!accountMenuOpen) return undefined

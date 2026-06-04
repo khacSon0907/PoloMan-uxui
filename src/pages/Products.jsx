@@ -5,7 +5,6 @@ import { categoryApi } from '../features/category'
 import {
   formatCurrency,
   getProductColors,
-  getProductCategoryId,
   getProductId,
   getProductImage,
   getProductSizes,
@@ -19,18 +18,19 @@ function normalizeValue(value) {
   return String(value || '').trim().toLowerCase()
 }
 
-function productMatchesCategory(product, selectedCategory) {
-  if (selectedCategory === 'all') return true
+function getCategoryOptionValue(category) {
+  return category?.id || category?._id || category?.slug || category?.name
+}
+
+function getCategoryRequestId(categories, selectedCategory) {
+  if (selectedCategory === 'all') return 'all'
 
   const selected = normalizeValue(selectedCategory)
-  const categoryValues = [
-    getProductCategoryId(product),
-    product?.category?.name,
-    product?.categoryName,
-    product?.categoryId,
-  ].map(normalizeValue)
+  const matchedCategory = categories.find((category) =>
+    [category?.id, category?._id, category?.slug, category?.name].map(normalizeValue).includes(selected),
+  )
 
-  return categoryValues.includes(selected)
+  return matchedCategory?.id || matchedCategory?._id || selectedCategory
 }
 
 function productMatchesSize(product, selectedSize) {
@@ -51,10 +51,15 @@ function Products() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedSize, setSelectedSize] = useState('all')
   const [categories, setCategories] = useState([])
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false)
   const [products, setProducts] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const selectedCategory = searchParams.get('category') || 'all'
+  const selectedCategoryRequestId = useMemo(
+    () => getCategoryRequestId(categories, selectedCategory),
+    [categories, selectedCategory],
+  )
 
   usePageMeta({
     title: 'Danh sach san pham PoloMan',
@@ -65,19 +70,55 @@ function Products() {
   useEffect(() => {
     let isMounted = true
 
-    Promise.allSettled([categoryApi.list(), productApi.getAll()])
-      .then(([categoryResult, productResult]) => {
+    categoryApi
+      .list()
+      .then((categoryList) => {
         if (!isMounted) return
 
-        if (categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value)) {
-          setCategories(categoryResult.value.filter((category) => category.active !== false))
+        if (Array.isArray(categoryList)) {
+          setCategories(categoryList.filter((category) => category.active !== false))
         }
+      })
+      .catch(() => {
+        if (isMounted) setCategories([])
+      })
+      .finally(() => {
+        if (isMounted) setCategoriesLoaded(true)
+      })
 
-        if (productResult.status === 'fulfilled' && Array.isArray(productResult.value)) {
-          setProducts(productResult.value.filter((product) => product.active !== false))
-        } else if (productResult.status === 'rejected') {
-          setErrorMessage(getApiMessage(productResult.reason, 'Khong the tai san pham.'))
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedCategory !== 'all' && !categoriesLoaded) return
+
+    let isMounted = true
+
+    Promise.resolve().then(() => {
+      if (!isMounted) return
+
+      setIsLoading(true)
+      setErrorMessage('')
+    })
+
+    const productsRequest =
+      selectedCategory === 'all' ? productApi.getAll() : productApi.getByCategoryId(selectedCategoryRequestId)
+
+    productsRequest
+      .then((productList) => {
+        if (!isMounted) return
+
+        if (Array.isArray(productList)) {
+          setProducts(productList.filter((product) => product.active !== false))
         }
+      })
+      .catch((error) => {
+        if (!isMounted) return
+
+        setProducts([])
+        setErrorMessage(getApiMessage(error, 'Khong the tai san pham.'))
       })
       .finally(() => {
         if (isMounted) setIsLoading(false)
@@ -86,13 +127,13 @@ function Products() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [categoriesLoaded, selectedCategory, selectedCategoryRequestId])
 
   const categoryOptions = useMemo(
     () => [
       { id: 'all', name: 'Tat ca' },
       ...categories.map((category) => ({
-        id: category.slug || category.id || category._id || category.name,
+        id: getCategoryOptionValue(category),
         name: category.name,
       })),
     ],
@@ -122,11 +163,8 @@ function Products() {
   }, [products])
 
   const filteredProducts = useMemo(
-    () =>
-      products.filter(
-        (product) => productMatchesCategory(product, selectedCategory) && productMatchesSize(product, selectedSize),
-      ),
-    [products, selectedCategory, selectedSize],
+    () => products.filter((product) => productMatchesSize(product, selectedSize)),
+    [products, selectedSize],
   )
 
   const handleCategoryChange = (categoryId) => {
@@ -163,7 +201,7 @@ function Products() {
                     type="button"
                     onClick={() => handleCategoryChange(cat.id)}
                     className={`flex shrink-0 cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-left text-xs font-semibold transition-all lg:w-full lg:py-1.5 ${
-                      selectedCategory === cat.id
+                      selectedCategoryRequestId === cat.id
                         ? 'bg-emerald-800 font-bold text-white'
                         : 'text-emerald-900/70 hover:bg-white hover:text-emerald-950'
                     }`}

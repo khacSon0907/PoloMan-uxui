@@ -2,20 +2,28 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
+  cartApi,
   cartStorage,
   formatCurrency,
   getImageUrl,
+  getProductColorCode,
+  getProductColorId,
+  getProductColorName,
   getProductColors,
   getProductId,
   getProductImage,
   getProductImages,
+  getProductName,
   getProductPrice,
+  getProductSizeId,
+  getProductSizeName,
   getProductSizes,
   getProductSlug,
   getProductStock,
+  getUserId,
   productApi,
 } from '../features/product'
-import { getApiMessage } from '../shared/api'
+import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
 function ProductDetail() {
@@ -35,12 +43,13 @@ function ProductDetail() {
   const images = useMemo(() => getProductImages(product, selectedColor), [product, selectedColor])
   const imageUrls = useMemo(() => images.map(getImageUrl).filter(Boolean), [images])
   const sizes = useMemo(() => getProductSizes(product, selectedColor), [product, selectedColor])
-  const selectedSizeData = sizes.find((size) => size?.size === selectedSize)
+  const selectedSizeData = sizes.find((size) => getProductSizeName(size) === selectedSize)
   const selectedStock = Number(selectedSizeData?.quantity || 0)
   const mainImage = imageUrls[selectedImageIndex] || getProductImage(product, selectedColor)
+  const productName = getProductName(product)
 
   usePageMeta({
-    title: product?.name ? `${product.name} | PoloMan` : 'Chi tiet san pham | PoloMan',
+    title: productName ? `${productName} | PoloMan` : 'Chi tiet san pham | PoloMan',
     description: product?.description || 'Chi tiet san pham PoloMan.',
     canonicalPath: `/products/${id}`,
   })
@@ -96,7 +105,7 @@ function ProductDetail() {
     }
   }, [id])
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return false
 
     if (sizes.length && !selectedSize) {
@@ -105,25 +114,50 @@ function ProductDetail() {
       return false
     }
 
-    cartStorage.addItem({
+    const cartItem = {
       productId: getProductId(product),
       slug: getProductSlug(product),
-      name: product.name,
+      name: productName,
       price: getProductPrice(product),
       image: mainImage,
-      colorName: selectedColor?.colorName || '',
-      colorCode: selectedColor?.colorCode || '',
-      size: selectedSize || selectedSizeData?.size || '',
+      colorId: getProductColorId(selectedColor),
+      colorName: getProductColorName(selectedColor),
+      colorCode: getProductColorCode(selectedColor),
+      sizeId: getProductSizeId(selectedSizeData),
+      size: selectedSize || getProductSizeName(selectedSizeData),
       quantity,
-    })
+    }
 
-    setErrorMessage('')
-    setSuccessMessage('Da them san pham vao gio hang.')
-    return true
+    const userId = getUserId(tokenStorage.getUser())
+
+    try {
+      if (userId) {
+        await cartApi.addItem(userId, {
+          productId: cartItem.productId,
+          productName: cartItem.name,
+          productImage: cartItem.image,
+          colorId: cartItem.colorId,
+          colorName: cartItem.colorName,
+          sizeId: cartItem.sizeId,
+          sizeName: cartItem.size,
+          quantity: cartItem.quantity,
+        })
+      } else {
+        cartStorage.addItem(cartItem)
+      }
+
+      setErrorMessage('')
+      setSuccessMessage('Da them san pham vao gio hang.')
+      return true
+    } catch (error) {
+      setSuccessMessage('')
+      setErrorMessage(getApiMessage(error, 'Khong the them san pham vao gio hang.'))
+      return false
+    }
   }
 
-  const handleBuyNow = () => {
-    if (handleAddToCart()) {
+  const handleBuyNow = async () => {
+    if (await handleAddToCart()) {
       navigate('/cart')
     }
   }
@@ -162,7 +196,7 @@ function ProductDetail() {
           San pham
         </Link>
         <span className="mx-2">/</span>
-        <span className="text-emerald-950">{product.name}</span>
+        <span className="text-emerald-950">{productName}</span>
       </nav>
 
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
@@ -184,7 +218,7 @@ function ProductDetail() {
 
           <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
             {mainImage ? (
-              <img src={mainImage} alt={product.name} className="h-full max-h-[720px] w-full object-cover" />
+              <img src={mainImage} alt={productName} className="h-full max-h-[720px] w-full object-cover" />
             ) : (
               <div className="flex aspect-square w-full items-center justify-center text-sm font-semibold text-neutral-400">
                 No image
@@ -198,7 +232,7 @@ function ProductDetail() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700/65">
               Ma san pham: {getProductId(product)}
             </p>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-emerald-950 sm:text-3xl">{product.name}</h1>
+            <h1 className="mt-2 text-2xl font-black leading-tight text-emerald-950 sm:text-3xl">{productName}</h1>
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <span className="text-2xl font-black text-emerald-800">
                 {formatCurrency(product.salePrice || product.price)}
@@ -229,7 +263,7 @@ function ProductDetail() {
           {colors.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-emerald-950">
-                Mau sac: {selectedColor?.colorName || `Mau ${selectedColorIndex + 1}`}
+                Mau sac: {getProductColorName(selectedColor) || `Mau ${selectedColorIndex + 1}`}
               </p>
               <div className="flex flex-wrap gap-2">
                 {colors.map((color, index) => {
@@ -237,7 +271,7 @@ function ProductDetail() {
 
                   return (
                     <button
-                      key={`${color.colorName}-${index}`}
+                      key={`${getProductColorName(color)}-${index}`}
                       type="button"
                       onClick={() => {
                         setSelectedColorIndex(index)
@@ -248,14 +282,14 @@ function ProductDetail() {
                       className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border bg-white p-1 ${
                         selectedColorIndex === index ? 'border-emerald-800 ring-2 ring-emerald-100' : 'border-emerald-100'
                       }`}
-                      title={color.colorName}
+                      title={getProductColorName(color)}
                     >
                       {colorImage ? (
                         <img src={colorImage} alt="" className="h-full w-full rounded-full object-cover" />
                       ) : (
                         <span
                           className="h-full w-full rounded-full border border-neutral-200"
-                          style={{ backgroundColor: color.colorCode || '#f5f5f5' }}
+                          style={{ backgroundColor: getProductColorCode(color) || '#f5f5f5' }}
                         />
                       )}
                     </button>
@@ -276,20 +310,21 @@ function ProductDetail() {
               {sizes.length ? (
                 sizes.map((size) => {
                   const disabled = Number(size?.quantity || 0) <= 0
+                  const sizeName = getProductSizeName(size)
 
                   return (
                     <button
-                      key={size.size}
+                      key={sizeName}
                       type="button"
                       disabled={disabled}
-                      onClick={() => setSelectedSize(size.size)}
+                      onClick={() => setSelectedSize(sizeName)}
                       className={`h-12 min-w-12 rounded-md border px-4 text-sm font-black transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-                        selectedSize === size.size
+                        selectedSize === sizeName
                           ? 'border-emerald-800 bg-emerald-800 text-white'
                           : 'border-emerald-100 bg-white text-emerald-950 hover:border-emerald-500'
                       }`}
                     >
-                      {size.size}
+                      {sizeName}
                     </button>
                   )
                 })

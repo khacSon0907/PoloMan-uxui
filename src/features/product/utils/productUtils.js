@@ -11,6 +11,10 @@ export function getProductId(product) {
   return product?.id || product?._id || product?.slug || product?.name
 }
 
+export function getProductName(product) {
+  return product?.name || product?.productName || product?.title || ''
+}
+
 export function getProductSlug(product) {
   return product?.slug || getProductId(product)
 }
@@ -30,12 +34,26 @@ export function getProductColors(product) {
   return product?.colors || product?.colorVariants || []
 }
 
+export function getProductColorId(color) {
+  return color?.id || color?._id || color?.colorId || ''
+}
+
+export function getProductColorName(color) {
+  return color?.colorName || color?.name || color?.title || ''
+}
+
+export function getProductColorCode(color) {
+  return color?.colorCode || color?.code || color?.hex || ''
+}
+
 export function getProductImages(product, color = getProductColors(product)[0]) {
   return color?.images || product?.images || []
 }
 
 export function getImageUrl(image) {
-  return image?.url || image?.secureUrl || image?.imageUrl || ''
+  if (typeof image === 'string') return image
+
+  return image?.url || image?.secureUrl || image?.imageUrl || image?.src || ''
 }
 
 export function getProductImage(product, color) {
@@ -47,6 +65,14 @@ export function getProductImage(product, color) {
 
 export function getProductSizes(product, color = getProductColors(product)[0]) {
   return color?.sizes || color?.sizeVariants || product?.sizes || []
+}
+
+export function getProductSizeId(size) {
+  return size?.id || size?._id || size?.sizeId || size?.sku || getProductSizeName(size)
+}
+
+export function getProductSizeName(size) {
+  return size?.size || size?.sizeName || size?.name || size?.title || ''
 }
 
 export function getProductStock(product) {

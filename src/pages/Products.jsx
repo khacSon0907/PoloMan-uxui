@@ -3,10 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { categoryApi } from '../features/category'
 import {
+  favoriteStorage,
   formatCurrency,
   getProductColors,
   getProductId,
   getProductImage,
+  getProductName,
+  getProductPrice,
   getProductSizes,
   getProductSlug,
   productApi,
@@ -53,6 +56,9 @@ function Products() {
   const [categories, setCategories] = useState([])
   const [categoriesLoaded, setCategoriesLoaded] = useState(false)
   const [products, setProducts] = useState([])
+  const [favoriteIds, setFavoriteIds] = useState(() =>
+    new Set(favoriteStorage.getItems().map((item) => String(item.productId))),
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const selectedCategory = searchParams.get('category') || 'all'
@@ -167,6 +173,10 @@ function Products() {
     [products, selectedSize],
   )
 
+  const syncFavoriteIds = () => {
+    setFavoriteIds(new Set(favoriteStorage.getItems().map((item) => String(item.productId))))
+  }
+
   const handleCategoryChange = (categoryId) => {
     if (categoryId === 'all') {
       setSearchParams({})
@@ -174,6 +184,21 @@ function Products() {
     }
 
     setSearchParams({ category: categoryId })
+  }
+
+  const handleToggleFavorite = (event, product) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const productId = getProductId(product)
+    favoriteStorage.toggleItem({
+      productId,
+      slug: getProductSlug(product),
+      name: getProductName(product) || product?.name,
+      price: getProductPrice(product),
+      image: getProductImage(product),
+    })
+    syncFavoriteIds()
   }
 
   return (
@@ -297,11 +322,25 @@ function Products() {
                         <span className="flex items-center justify-center gap-1.5 rounded-md bg-emerald-800 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-all group-hover:bg-emerald-900">
                           Mua ngay
                         </span>
-                        <span className="flex items-center justify-center rounded-md border border-emerald-200 text-emerald-800 transition-colors group-hover:border-emerald-700 group-hover:bg-emerald-50">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <button
+                          type="button"
+                          onClick={(event) => handleToggleFavorite(event, prod)}
+                          className={`flex items-center justify-center rounded-md border transition-colors ${
+                            favoriteIds.has(String(getProductId(prod)))
+                              ? 'border-red-100 bg-red-50 text-red-600'
+                              : 'border-emerald-200 text-emerald-800 group-hover:border-emerald-700 group-hover:bg-emerald-50'
+                          }`}
+                          aria-label="Yeu thich"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill={favoriteIds.has(String(getProductId(prod))) ? 'currentColor' : 'none'}
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                           </svg>
-                        </span>
+                        </button>
                       </div>
                     </div>
                   </Link>

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   cartApi,
   cartStorage,
+  favoriteStorage,
   formatCurrency,
   getImageUrl,
   getProductColorCode,
@@ -31,12 +32,14 @@ function ProductDetail() {
   const navigate = useNavigate()
   const [product, setProduct] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [pageErrorMessage, setPageErrorMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedColorIndex, setSelectedColorIndex] = useState(0)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedSize, setSelectedSize] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [successMessage, setSuccessMessage] = useState('')
+  const [isFavorite, setIsFavorite] = useState(false)
 
   const colors = useMemo(() => getProductColors(product), [product])
   const selectedColor = colors[selectedColorIndex] || colors[0]
@@ -60,6 +63,7 @@ function ProductDetail() {
     Promise.resolve().then(() => {
       if (!isMounted) return
       setIsLoading(true)
+      setPageErrorMessage('')
       setErrorMessage('')
       setSuccessMessage('')
     })
@@ -69,6 +73,7 @@ function ProductDetail() {
       .then((data) => {
         if (isMounted) {
           setProduct(data)
+          setPageErrorMessage('')
           setSelectedColorIndex(0)
           setSelectedImageIndex(0)
           setSelectedSize('')
@@ -94,7 +99,7 @@ function ProductDetail() {
           // Keep original detail error.
         }
 
-        if (isMounted) setErrorMessage(getApiMessage(error, 'Khong the tai chi tiet san pham.'))
+        if (isMounted) setPageErrorMessage(getApiMessage(error, 'Khong the tai chi tiet san pham.'))
       })
       .finally(() => {
         if (isMounted) setIsLoading(false)
@@ -104,6 +109,20 @@ function ProductDetail() {
       isMounted = false
     }
   }, [id])
+
+  useEffect(() => {
+    if (!product) return
+
+    let isMounted = true
+
+    Promise.resolve().then(() => {
+      if (isMounted) setIsFavorite(favoriteStorage.hasItem(getProductId(product)))
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [product])
 
   const handleAddToCart = async () => {
     if (!product) return false
@@ -162,6 +181,27 @@ function ProductDetail() {
     }
   }
 
+  const handleToggleFavorite = () => {
+    if (!product) return
+
+    const nextFavorite = favoriteStorage.toggleItem({
+      productId: getProductId(product),
+      slug: getProductSlug(product),
+      name: productName,
+      price: getProductPrice(product),
+      image: mainImage,
+      colorId: getProductColorId(selectedColor),
+      colorName: getProductColorName(selectedColor),
+      colorCode: getProductColorCode(selectedColor),
+      sizeId: getProductSizeId(selectedSizeData),
+      size: selectedSize || getProductSizeName(selectedSizeData),
+    })
+
+    setIsFavorite(nextFavorite)
+    setSuccessMessage(nextFavorite ? 'Da luu san pham vao yeu thich.' : 'Da xoa san pham khoi yeu thich.')
+    setErrorMessage('')
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-96 items-center justify-center rounded-lg border border-neutral-200 bg-white">
@@ -170,11 +210,11 @@ function ProductDetail() {
     )
   }
 
-  if (errorMessage || !product) {
+  if (pageErrorMessage || !product) {
     return (
       <section className="rounded-lg border border-neutral-200 bg-white p-8 text-center">
         <h1 className="text-xl font-black text-neutral-950">Khong tim thay san pham</h1>
-        <p className="mt-2 text-sm text-red-600">{errorMessage || 'San pham khong ton tai.'}</p>
+        <p className="mt-2 text-sm text-red-600">{pageErrorMessage || 'San pham khong ton tai.'}</p>
         <Link
           to="/products"
           className="mt-5 inline-flex h-10 items-center rounded-md bg-emerald-800 px-4 text-sm font-bold uppercase tracking-[0.12em] text-white hover:bg-emerald-900"
@@ -370,6 +410,21 @@ function ProductDetail() {
             className="flex h-14 w-full items-center justify-center rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white shadow-sm transition-colors hover:bg-emerald-900"
           >
             Mua ngay
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            className={`flex h-12 w-full items-center justify-center gap-2 rounded-lg border px-5 text-sm font-black uppercase tracking-[0.12em] transition-colors ${
+              isFavorite
+                ? 'border-red-100 bg-red-50 text-red-600 hover:border-red-200'
+                : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50'
+            }`}
+          >
+            <svg className="h-4 w-4" fill={isFavorite ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            {isFavorite ? 'Da yeu thich' : 'Them vao yeu thich'}
           </button>
 
           {(successMessage || errorMessage) && (

@@ -15,6 +15,7 @@ import AdminUsers from "../../pages/admin/AdminUsers";
 import Home from "../../pages/Home";
 
 import Cart from "../../pages/Cart";
+import Favorites from "../../pages/Favorites";
 import ProductDetail from "../../pages/ProductDetail";
 import Products from "../../pages/Products";
 import Login from "../../pages/Login";
@@ -22,6 +23,7 @@ import Register from "../../pages/Register";
 import VerifyOtp from "../../pages/VerifyOtp";
 import ForgotPassword from "../../pages/ForgotPassword";
 import Account from "../../pages/Account";
+import About from "../../pages/About";
 import ChangePassword from "../../pages/ChangePassword";
 import NotFound from "../../pages/NotFound";
 import OAuth2Success from "../../pages/OAuth2Success";
@@ -53,12 +55,20 @@ export const router = createBrowserRouter([
         element: <Cart />,
       },
       {
+        path: "favorites",
+        element: <Favorites />,
+      },
+      {
         path: "account",
         element: <Account />,
       },
       {
         path: "change-password",
         element: <ChangePassword />,
+      },
+      {
+        path: "about",
+        element: <About />,
       },
     ],
   },

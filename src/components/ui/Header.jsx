@@ -189,13 +189,13 @@ function Header() {
               <Icon name="search" className="absolute left-3 top-3 h-4 w-4 text-emerald-700/45" />
             </div>
 
-            <button
-              type="button"
+            <Link
+              to="/favorites"
               className="hidden h-10 w-10 items-center justify-center rounded-full text-emerald-900/65 hover:bg-emerald-50 hover:text-emerald-950 sm:flex"
               aria-label="Yêu thích"
             >
               <Icon name="heart" className="h-6 w-6" />
-            </button>
+            </Link>
 
             <Link
               to="/cart"
@@ -382,6 +382,17 @@ function Header() {
             </div>
 
             <div className="border-t border-emerald-100 bg-white p-4">
+              <Link
+                to="/favorites"
+                onClick={closeMenus}
+                className="mb-3 flex h-12 items-center justify-between rounded-xl bg-white px-4 text-sm font-black text-emerald-950 ring-1 ring-emerald-100"
+              >
+                <span className="flex items-center gap-3">
+                  <Icon name="heart" className="h-5 w-5" />
+                  Yêu thích
+                </span>
+              </Link>
+
               <Link
                 to="/cart"
                 onClick={closeMenus}

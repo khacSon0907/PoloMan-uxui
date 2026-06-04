@@ -9,13 +9,59 @@ import {
   getUserId,
   normalizeCartItems,
 } from '../features/product'
+import { userApi } from '../features/user'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
+const initialCheckoutForm = {
+  fullName: '',
+  phoneNumber: '',
+  address: '',
+  province: '',
+  district: '',
+  ward: '',
+  note: '',
+}
+
+function getDisplayName(user) {
+  return user?.fullName || user?.name || user?.username || user?.email || ''
+}
+
+function getUserAddress(user) {
+  if (typeof user?.address === 'string') return user.address
+
+  return (
+    user?.address?.detail ||
+    user?.address?.street ||
+    user?.shippingAddress ||
+    user?.defaultAddress ||
+    ''
+  )
+}
+
+function getCheckoutForm(user) {
+  return {
+    fullName: getDisplayName(user),
+    phoneNumber: user?.phoneNumber || user?.phone || '',
+    address: getUserAddress(user),
+    province: user?.province || user?.address?.province || '',
+    district: user?.district || user?.address?.district || '',
+    ward: user?.ward || user?.address?.ward || '',
+    note: '',
+  }
+}
+
 function Cart() {
+  const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [items, setItems] = useState(() => cartStorage.getItems())
+  const [checkoutForm, setCheckoutForm] = useState(() => getCheckoutForm(tokenStorage.getUser()))
+  const [profileMessage, setProfileMessage] = useState('')
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const userId = getUserId(tokenStorage.getUser())
+  const user = authSnapshot.user
+  const userId = getUserId(user)
+  const isAuthenticated = authSnapshot.isAuthenticated
+  const isAuthInitializing = authSnapshot.isInitializing
 
   usePageMeta({
     title: 'Gio hang cua ban | PoloMan',
@@ -23,8 +69,14 @@ function Cart() {
     canonicalPath: '/cart',
   })
 
+  useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
+
   useEffect(() => {
     const syncCart = async () => {
+      if (isAuthInitializing || (isAuthenticated && !userId)) {
+        return
+      }
+
       if (!userId) {
         setItems(cartStorage.getItems())
         return
@@ -48,7 +100,64 @@ function Cart() {
       window.removeEventListener(CART_UPDATED_EVENT, syncCart)
       window.removeEventListener('storage', syncCart)
     }
-  }, [userId])
+  }, [isAuthInitializing, isAuthenticated, userId])
+
+  useEffect(() => {
+    let isMounted = true
+
+    if (isAuthInitializing) {
+      return () => {
+        isMounted = false
+      }
+    }
+
+    if (!isAuthenticated) {
+      Promise.resolve().then(() => {
+        if (!isMounted) return
+        setCheckoutForm((current) => ({ ...initialCheckoutForm, note: current.note }))
+        setProfileMessage('')
+      })
+      return () => {
+        isMounted = false
+      }
+    }
+
+    Promise.resolve().then(() => {
+      if (!isMounted) return
+      setIsLoadingProfile(true)
+      setProfileMessage('')
+    })
+
+    userApi
+      .getMe()
+      .then((user) => {
+        if (!isMounted) return
+
+        tokenStorage.setUser(user)
+        setCheckoutForm((current) => ({
+          ...getCheckoutForm(user),
+          note: current.note,
+        }))
+        setProfileMessage('Da dien thong tin tu tai khoan cua ban.')
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setProfileMessage(getApiMessage(error, 'Khong the tai thong tin tai khoan.'))
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingProfile(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [isAuthInitializing, isAuthenticated])
+
+  const handleCheckoutFieldChange = (event) => {
+    const { name, value } = event.target
+    setCheckoutForm((current) => ({ ...current, [name]: value }))
+  }
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
@@ -122,34 +231,104 @@ function Cart() {
         <section className="space-y-5">
           <div>
             <h1 className="text-2xl font-black text-emerald-950 sm:text-3xl">Thong tin don hang</h1>
-            <p className="mt-2 text-sm text-emerald-900/60">Nhap thong tin giao hang de hoan tat don hang.</p>
+            <p className="mt-2 text-sm text-emerald-900/60">
+              {isAuthenticated
+                ? 'Thong tin giao hang duoc lay tu tai khoan va co the chinh sua.'
+                : 'Nhap thong tin giao hang de hoan tat don hang.'}
+            </p>
           </div>
+
+          {isAuthenticated && (
+            <div className="rounded-2xl border border-emerald-100 bg-white/85 p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-black text-emerald-950">Thong tin tai khoan</p>
+                  <p className="mt-1 text-sm text-emerald-900/60">
+                    {isLoadingProfile ? 'Dang tai thong tin...' : profileMessage || 'San sang giao hang cho tai khoan cua ban.'}
+                  </p>
+                </div>
+                {isLoadingProfile && (
+                  <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-emerald-100 border-t-emerald-700" />
+                )}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-emerald-50/70 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700/60">Ho ten</p>
+                  <p className="mt-1 truncate text-sm font-bold text-emerald-950">
+                    {checkoutForm.fullName || getDisplayName(user) || 'Chua cap nhat'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-emerald-50/70 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700/60">Email</p>
+                  <p className="mt-1 truncate text-sm font-bold text-emerald-950">
+                    {user?.email || 'Chua cap nhat'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-emerald-50/70 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700/60">So dien thoai</p>
+                  <p className="mt-1 truncate text-sm font-bold text-emerald-950">
+                    {checkoutForm.phoneNumber || user?.phoneNumber || user?.phone || 'Chua cap nhat'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 rounded-2xl border border-emerald-100 bg-white/85 p-5 shadow-sm">
             <input
+              name="fullName"
+              value={checkoutForm.fullName}
+              onChange={handleCheckoutFieldChange}
               className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               placeholder="Ho va ten"
             />
             <input
+              name="phoneNumber"
+              value={checkoutForm.phoneNumber}
+              onChange={handleCheckoutFieldChange}
               className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               placeholder="So dien thoai"
             />
             <input
+              name="address"
+              value={checkoutForm.address}
+              onChange={handleCheckoutFieldChange}
               className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               placeholder="Dia chi"
             />
             <div className="grid gap-3 sm:grid-cols-3">
-              <select className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600">
-                <option>Chon tinh/thanh pho</option>
+              <select
+                name="province"
+                value={checkoutForm.province}
+                onChange={handleCheckoutFieldChange}
+                className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Chon tinh/thanh pho</option>
+                {checkoutForm.province && <option value={checkoutForm.province}>{checkoutForm.province}</option>}
               </select>
-              <select className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600">
-                <option>Chon quan/huyen</option>
+              <select
+                name="district"
+                value={checkoutForm.district}
+                onChange={handleCheckoutFieldChange}
+                className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Chon quan/huyen</option>
+                {checkoutForm.district && <option value={checkoutForm.district}>{checkoutForm.district}</option>}
               </select>
-              <select className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600">
-                <option>Chon phuong/xa</option>
+              <select
+                name="ward"
+                value={checkoutForm.ward}
+                onChange={handleCheckoutFieldChange}
+                className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Chon phuong/xa</option>
+                {checkoutForm.ward && <option value={checkoutForm.ward}>{checkoutForm.ward}</option>}
               </select>
             </div>
             <input
+              name="note"
+              value={checkoutForm.note}
+              onChange={handleCheckoutFieldChange}
               className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               placeholder="Ghi chu giao hang"
             />

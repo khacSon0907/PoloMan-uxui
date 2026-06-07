@@ -67,7 +67,7 @@ function Header() {
 
   const accountLinks = [
     { to: '/account', label: 'Tài khoản của tôi', icon: 'user', show: true },
-    { to: '/account?tab=orders', label: 'Đơn hàng', icon: 'order', show: true },
+    { to: '/account/orders', label: 'Đơn hàng', icon: 'order', show: true },
     { to: '/change-password', label: 'Đổi mật khẩu', icon: 'lock', show: showChangePassword },
     { to: '/admin', label: 'Quản trị', icon: 'admin', show: isAdmin },
   ].filter((item) => item.show)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 
-import { userApi } from '../features/user'
+import { addressApi, userApi } from '../features/user'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { uploadImageToCloudinary } from '../shared/services/cloudinaryUpload'
 
@@ -13,40 +13,8 @@ function getInitial(user) {
   return getDisplayName(user).trim().charAt(0).toUpperCase() || 'U'
 }
 
-const orders = [
-  {
-    id: 'PM240501',
-    date: '18/05/2026',
-    status: 'Đang giao',
-    total: 1240000,
-    items: 'Áo Polo Premium, Quần Khaki Slim-fit',
-  },
-  {
-    id: 'PM240422',
-    date: '02/05/2026',
-    status: 'Hoàn thành',
-    total: 690000,
-    items: 'Áo Sơ Mi Oxford',
-  },
-  {
-    id: 'PM240318',
-    date: '16/04/2026',
-    status: 'Hoàn thành',
-    total: 980000,
-    items: 'Áo Polo Essential, Thắt lưng da',
-  },
-]
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(value)
-}
-
-function getUpdatedUserFromResponse(response) {
-  const data = response?.data ?? response
-  return data?.user || data?.account || data?.profile || data
+function getUserId(user) {
+  return user?.id || user?.userId || user?._id || user?.sub || ''
 }
 
 function getProfileForm(user) {
@@ -56,18 +24,31 @@ function getProfileForm(user) {
   }
 }
 
-function getUpdatePayload(user, values = {}) {
-  return {
-    username: values.username ?? user?.username ?? '',
-    phoneNumber: values.phoneNumber ?? user?.phoneNumber ?? '',
-    avatarUrl: values.avatarUrl ?? user?.avatarUrl ?? '',
-  }
+function getUpdatedUserFromResponse(response) {
+  const data = response?.data ?? response
+  return data?.user || data?.account || data?.profile || data
+}
+
+function getAddressName(address, key) {
+  return address?.[`${key}Name`] || address?.[key] || ''
+}
+
+function formatFullAddress(address) {
+  return [
+    address?.streetAddress,
+    getAddressName(address, 'ward'),
+    getAddressName(address, 'district'),
+    getAddressName(address, 'province'),
+  ]
+    .filter(Boolean)
+    .join(', ')
 }
 
 function Account() {
-  const [searchParams, setSearchParams] = useSearchParams()
   const avatarInputRef = useRef(null)
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
+  const user = authSnapshot.user
+  const userId = getUserId(user)
   const [profileForm, setProfileForm] = useState(() => getProfileForm(tokenStorage.getUser()))
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
@@ -75,73 +56,100 @@ function Account() {
   const [profileError, setProfileError] = useState('')
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
-  const activeTab = searchParams.get('tab') === 'orders' ? 'orders' : 'profile'
-  const user = authSnapshot.user
+  const [addresses, setAddresses] = useState([])
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false)
+  const [addressError, setAddressError] = useState('')
   const displayedAvatarUrl = avatarPreviewUrl || user?.avatarUrl
 
-  const profileFields = useMemo(() => [
-    { label: 'Tên hiển thị', value: getDisplayName(user) },
-    { label: 'Email', value: user?.email || 'Chưa cập nhật' },
-    { label: 'Số điện thoại', value: user?.phoneNumber || 'Chưa cập nhật' },
-    { label: 'Mã tài khoản', value: user?.id || 'Chưa cập nhật' },
-    { label: 'Vai trò', value: user?.roles?.length ? user.roles.join(', ') : 'Khách hàng' },
-  ], [user])
+  const profileFields = useMemo(
+    () => [
+      { label: 'Tên hiển thị', value: getDisplayName(user) },
+      { label: 'Email', value: user?.email || 'Chưa cập nhật' },
+      { label: 'Số điện thoại', value: user?.phoneNumber || 'Chưa cập nhật' },
+      { label: 'Mã tài khoản', value: user?.id || 'Chưa cập nhật' },
+      { label: 'Vai trò', value: user?.roles?.length ? user.roles.join(', ') : 'Khách hàng' },
+    ],
+    [user],
+  )
+
+  const defaultAddress = useMemo(
+    () => addresses.find((address) => address?.isDefault) || addresses[0] || null,
+    [addresses],
+  )
 
   useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
 
   useEffect(() => {
+    Promise.resolve().then(() => {
+      setProfileForm(getProfileForm(user))
+    })
+  }, [user])
+
+  useEffect(() => {
     if (!avatarPreviewUrl) return undefined
-    return () => {
-      URL.revokeObjectURL(avatarPreviewUrl)
-    }
+    return () => URL.revokeObjectURL(avatarPreviewUrl)
   }, [avatarPreviewUrl])
 
-  const handleAvatarClick = () => {
-    if (isSavingProfile) return
-    avatarInputRef.current?.click()
-  }
+  useEffect(() => {
+    let isMounted = true
 
-  const handleProfileChange = (event) => {
-    const { name, value } = event.target
-    setProfileForm((currentForm) => ({
-      ...currentForm,
-      [name]: value,
-    }))
-  }
+    if (!userId) {
+      Promise.resolve().then(() => {
+        if (isMounted) setAddresses([])
+      })
+      return () => {
+        isMounted = false
+      }
+    }
 
-  const handleStartEditProfile = () => {
-    setProfileForm(getProfileForm(user))
-    setIsEditingProfile(true)
-    setProfileError('')
-    setProfileMessage('')
-  }
+    Promise.resolve().then(() => {
+      if (!isMounted) return
+      setIsLoadingAddresses(true)
+      setAddressError('')
+    })
+
+    addressApi
+      .getAddresses(userId)
+      .then((list) => {
+        if (!isMounted) return
+        setAddresses(list)
+        const nextDefaultAddress = list.find((address) => address?.isDefault) || list[0]
+        if (nextDefaultAddress) tokenStorage.setUser({ ...tokenStorage.getUser(), address: nextDefaultAddress })
+      })
+      .catch((error) => {
+        if (isMounted) setAddressError(getApiMessage(error, 'Không thể tải danh sách địa chỉ.'))
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingAddresses(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [userId])
 
   const resetAvatarPreview = () => {
-    if (avatarPreviewUrl) {
-      URL.revokeObjectURL(avatarPreviewUrl)
-    }
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
     setAvatarFile(null)
     setAvatarPreviewUrl('')
   }
 
-  const handleCancelEditProfile = () => {
-    setProfileForm(getProfileForm(user))
-    setIsEditingProfile(false)
-    setProfileError('')
-    setProfileMessage('')
-    resetAvatarPreview()
+  const handleProfileChange = (event) => {
+    const { name, value } = event.target
+    setProfileForm((current) => ({ ...current, [name]: value }))
   }
 
   const handleProfileSubmit = async (event) => {
     event.preventDefault()
 
-    const payload = getUpdatePayload(user, {
+    const payload = {
       username: profileForm.username.trim(),
       phoneNumber: profileForm.phoneNumber.trim(),
-    })
+      avatarUrl: user?.avatarUrl || '',
+    }
 
     if (!payload.username) {
-      setProfileError('Vui lòng nhập tên hiển thị')
+      setProfileError('Vui lòng nhập tên hiển thị.')
       setProfileMessage('')
       return
     }
@@ -156,10 +164,7 @@ function Account() {
       if (avatarFile) {
         const uploadResult = await uploadImageToCloudinary(avatarFile, 'USER_AVATAR')
         avatarUrl = uploadResult.secure_url || uploadResult.url
-
-        if (!avatarUrl) {
-          throw new Error('Cloudinary không trả về link ảnh')
-        }
+        if (!avatarUrl) throw new Error('Cloudinary không trả về link ảnh')
       }
 
       const finalPayload = { ...payload, avatarUrl }
@@ -167,22 +172,25 @@ function Account() {
       const updatedUser = getUpdatedUserFromResponse(updateResponse)
       const syncedUser = await userApi.getMe().catch(() => null)
 
-      tokenStorage.setUser(
-        syncedUser || {
-          ...user,
-          ...finalPayload,
-          ...updatedUser,
-          avatarUrl: updatedUser?.avatarUrl || avatarUrl,
-        },
-      )
+      tokenStorage.setUser({
+        ...(syncedUser || user),
+        ...(!syncedUser ? finalPayload : {}),
+        ...(!syncedUser ? updatedUser : {}),
+        address: tokenStorage.getUser()?.address,
+        avatarUrl: updatedUser?.avatarUrl || syncedUser?.avatarUrl || avatarUrl,
+      })
       resetAvatarPreview()
       setIsEditingProfile(false)
-      setProfileMessage('Cập nhật thông tin cá nhân thành công')
+      setProfileMessage('Cập nhật thông tin cá nhân thành công.')
     } catch (error) {
-      setProfileError(getApiMessage(error, 'Cập nhật thông tin cá nhân thất bại'))
+      setProfileError(getApiMessage(error, 'Cập nhật thông tin cá nhân thất bại.'))
     } finally {
       setIsSavingProfile(false)
     }
+  }
+
+  const handleAvatarClick = () => {
+    if (!isSavingProfile) avatarInputRef.current?.click()
   }
 
   const handleAvatarChange = (event) => {
@@ -190,20 +198,15 @@ function Account() {
     event.target.value = ''
 
     if (!file) return
-
     if (!file.type.startsWith('image/')) {
-      setProfileError('Vui lòng chọn file ảnh')
+      setProfileError('Vui lòng chọn file ảnh.')
       setProfileMessage('')
       return
     }
 
-    if (avatarPreviewUrl) {
-      URL.revokeObjectURL(avatarPreviewUrl)
-    }
-
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
     setAvatarFile(file)
     setAvatarPreviewUrl(URL.createObjectURL(file))
-    setProfileForm(getProfileForm(user))
     setIsEditingProfile(true)
     setProfileError('')
     setProfileMessage('Ảnh mới đang được xem trước. Bấm lưu thay đổi để cập nhật.')
@@ -214,201 +217,191 @@ function Account() {
   }
 
   return (
-    <div className="relative mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      {/* Header card */}
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_12px_40px_rgba(20,83,45,0.08)] sm:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="hidden"
-            />
+            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
             <button
               type="button"
               onClick={handleAvatarClick}
               disabled={isSavingProfile}
-              className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-semibold text-emerald-700 shadow-sm transition-all hover:border-emerald-500 disabled:cursor-wait disabled:opacity-70 sm:h-24 sm:w-24 sm:text-3xl"
+              className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-semibold text-emerald-700 shadow-sm hover:border-emerald-500 disabled:cursor-wait disabled:opacity-70 sm:h-24 sm:w-24 sm:text-3xl"
               aria-label="Chọn ảnh đại diện"
               title="Chọn ảnh đại diện"
             >
-              {displayedAvatarUrl ? (
-                <img src={displayedAvatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                getInitial(user)
-              )}
-              {isSavingProfile && (
-                <span className="absolute inset-0 rounded-full border-2 border-emerald-200 border-t-emerald-600 animate-spin" />
-              )}
+              {displayedAvatarUrl ? <img src={displayedAvatarUrl} alt="" className="h-full w-full object-cover" /> : getInitial(user)}
+              {isSavingProfile && <span className="absolute inset-0 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />}
             </button>
 
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                Tài khoản của tôi
-              </p>
-              {/* Tên: emerald-800 thay vì emerald-950 */}
-              <h1 className="mt-2 truncate text-2xl font-semibold text-emerald-800 sm:text-3xl">
-                {getDisplayName(user)}
-              </h1>
-              {user?.email && (
-                <p className="mt-1 truncate text-sm text-emerald-600">{user.email}</p>
-              )}
-              {avatarFile && (
-                <p className="mt-2 text-sm text-emerald-600">Đang xem trước ảnh mới</p>
-              )}
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">Tài khoản của tôi</p>
+              <h1 className="mt-2 truncate text-2xl font-semibold text-emerald-800 sm:text-3xl">{getDisplayName(user)}</h1>
+              {user?.email && <p className="mt-1 truncate text-sm text-emerald-600">{user.email}</p>}
             </div>
           </div>
 
-          {/* Tab switcher */}
-          <div className="inline-flex w-full rounded-xl border border-emerald-100 bg-emerald-50 p-1 md:w-auto">
-            <button
-              type="button"
-              onClick={() => setSearchParams({ tab: 'profile' })}
-              className={`h-10 flex-1 rounded-md px-3 text-sm font-semibold transition-colors md:flex-none md:px-4 ${
-                activeTab === 'profile'
-                  ? 'bg-white text-emerald-800 shadow-sm'
-                  : 'text-emerald-600 hover:text-emerald-800'
-              }`}
-            >
-              Thông tin cá nhân
-            </button>
-            <button
-              type="button"
-              onClick={() => setSearchParams({ tab: 'orders' })}
-              className={`h-10 flex-1 rounded-md px-3 text-sm font-semibold transition-colors md:flex-none md:px-4 ${
-                activeTab === 'orders'
-                  ? 'bg-white text-emerald-800 shadow-sm'
-                  : 'text-emerald-600 hover:text-emerald-800'
-              }`}
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/account/orders"
+              className="inline-flex h-10 items-center rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-700 hover:border-emerald-500 hover:text-emerald-800"
             >
               Lịch sử order
-            </button>
+            </Link>
+            {!isEditingProfile && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileForm(getProfileForm(user))
+                  setIsEditingProfile(true)
+                  setProfileError('')
+                  setProfileMessage('')
+                }}
+                className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800"
+              >
+                Chỉnh sửa hồ sơ
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {activeTab === 'profile' ? (
-        <section className="mt-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_12px_40px_rgba(20,83,45,0.08)] sm:p-6">
-          <div className="flex flex-col gap-3 border-b border-emerald-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              {/* Section title: emerald-800 */}
-              <h2 className="text-lg font-semibold text-emerald-800">Thông tin cá nhân</h2>
-              <p className="mt-1 text-sm text-emerald-500">
-                Cập nhật tên hiển thị, số điện thoại và ảnh đại diện.
+      <section className="mt-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-2 border-b border-emerald-100 pb-5">
+          <h2 className="text-lg font-semibold text-emerald-800">Thông tin cá nhân</h2>
+          <p className="text-sm text-emerald-600">Cập nhật tên hiển thị, số điện thoại và ảnh đại diện.</p>
+        </div>
+
+        {isEditingProfile ? (
+          <form onSubmit={handleProfileSubmit} className="mt-5 grid gap-4 lg:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-emerald-700">Tên hiển thị</span>
+              <input
+                name="username"
+                value={profileForm.username}
+                onChange={handleProfileChange}
+                disabled={isSavingProfile}
+                className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-emerald-700">Số điện thoại</span>
+              <input
+                name="phoneNumber"
+                value={profileForm.phoneNumber}
+                onChange={handleProfileChange}
+                disabled={isSavingProfile}
+                className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
+              />
+            </label>
+            <div className="grid gap-2 lg:col-span-2">
+              <span className="text-sm font-medium text-emerald-700">Email</span>
+              <p className="flex h-11 items-center rounded-md border border-emerald-100 bg-emerald-50/60 px-3 text-sm text-emerald-500">
+                {user?.email || 'Chưa cập nhật'}
               </p>
             </div>
-            {!isEditingProfile && (
+            {(profileMessage || profileError) && (
+              <p className={`text-sm lg:col-span-2 ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>
+                {profileError || profileMessage}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3 lg:col-span-2">
+              <button
+                type="submit"
+                disabled={isSavingProfile}
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isSavingProfile && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+                {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
               <button
                 type="button"
-                onClick={handleStartEditProfile}
-                className="h-10 w-fit rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-700 transition-colors hover:border-emerald-500 hover:text-emerald-800"
+                onClick={() => {
+                  setIsEditingProfile(false)
+                  setProfileError('')
+                  setProfileMessage('')
+                  resetAvatarPreview()
+                }}
+                disabled={isSavingProfile}
+                className="h-10 rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-600 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-wait disabled:opacity-60"
               >
-                Chỉnh sửa
+                Hủy
               </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            {(profileMessage || profileError) && (
+              <p className={`mt-5 text-sm ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>{profileError || profileMessage}</p>
             )}
-          </div>
-
-          {isEditingProfile ? (
-            <form onSubmit={handleProfileSubmit} className="mt-5 grid gap-4 lg:grid-cols-2 lg:gap-x-5">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-emerald-700">Tên hiển thị</span>
-                <input
-                  name="username"
-                  value={profileForm.username}
-                  onChange={handleProfileChange}
-                  disabled={isSavingProfile}
-                  className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none transition-colors focus:border-emerald-600 disabled:bg-emerald-50/60"
-                />
-              </label>
-              <div className="grid gap-2">
-                <span className="text-sm font-medium text-emerald-700">Email</span>
-                <p className="flex h-11 items-center rounded-md border border-emerald-100 bg-emerald-50/60 px-3 text-sm text-emerald-500">
-                  {user?.email || 'Chưa cập nhật'}
-                </p>
-              </div>
-              <label className="grid gap-2 lg:col-span-2">
-                <span className="text-sm font-medium text-emerald-700">Số điện thoại</span>
-                <input
-                  name="phoneNumber"
-                  value={profileForm.phoneNumber}
-                  onChange={handleProfileChange}
-                  disabled={isSavingProfile}
-                  className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none transition-colors focus:border-emerald-600 disabled:bg-emerald-50/60"
-                />
-              </label>
-              {(profileMessage || profileError) && (
-                <p className={`text-sm lg:col-span-2 ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>
-                  {profileError || profileMessage}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-3 pt-1 lg:col-span-2">
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition-opacity hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
-                >
-                  {isSavingProfile && (
-                    <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                  )}
-                  {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelEditProfile}
-                  disabled={isSavingProfile}
-                  className="h-10 rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-600 transition-colors hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-wait disabled:opacity-60"
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              {(profileMessage || profileError) && (
-                <p className={`mt-5 text-sm ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>
-                  {profileError || profileMessage}
-                </p>
-              )}
-              <div className="mt-5 grid gap-x-8 sm:grid-cols-2">
-                {profileFields.map((field) => (
-                  <div key={field.label} className="border-b border-emerald-100 py-4">
-                    {/* Label: emerald-500 */}
-                    <p className="text-sm font-medium text-emerald-500">{field.label}</p>
-                    {/* Value: emerald-800 thay vì emerald-950 */}
-                    <p className="mt-1 break-words text-sm font-medium text-emerald-800">{field.value}</p>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-      ) : (
-        <section className="mt-6 rounded-lg border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-lg font-semibold text-emerald-800">Lịch sử order</h2>
-          <div className="mt-5 divide-y divide-emerald-100 border-y border-emerald-100">
-            {orders.map((order) => (
-              <div key={order.id} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto] sm:gap-4 lg:grid-cols-[150px_1fr_140px_160px] lg:items-center">
-                <div>
-                  {/* Order ID: emerald-800 */}
-                  <p className="text-sm font-semibold text-emerald-800">#{order.id}</p>
-                  <p className="mt-1 text-xs text-emerald-500">{order.date}</p>
+            <div className="mt-5 grid gap-x-8 sm:grid-cols-2">
+              {profileFields.map((field) => (
+                <div key={field.label} className="border-b border-emerald-100 py-4">
+                  <p className="text-sm font-medium text-emerald-500">{field.label}</p>
+                  <p className="mt-1 break-words text-sm font-medium text-emerald-800">{field.value}</p>
                 </div>
-                {/* Items text: emerald-600 */}
-                <p className="text-sm text-emerald-600 sm:col-span-2 lg:col-span-1">{order.items}</p>
-                <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {order.status}
-                </span>
-                {/* Total: emerald-800 */}
-                <p className="text-sm font-semibold text-emerald-800 sm:text-right">
-                  {formatCurrency(order.total)}
-                </p>
-              </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 border-b border-emerald-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-emerald-800">Địa chỉ giao hàng</h2>
+            <p className="mt-1 text-sm text-emerald-600">Chọn một địa chỉ để xem chi tiết hoặc chỉnh sửa.</p>
+          </div>
+          <Link
+            to="/account/addresses/new"
+            className="inline-flex h-10 w-fit items-center rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-700 hover:border-emerald-500 hover:text-emerald-800"
+          >
+            Thêm địa chỉ
+          </Link>
+        </div>
+
+        {isLoadingAddresses ? (
+          <p className="mt-5 text-sm text-emerald-600">Đang tải địa chỉ...</p>
+        ) : addressError ? (
+          <p className="mt-5 text-sm text-red-500">{addressError}</p>
+        ) : addresses.length ? (
+          <div className="mt-5 grid gap-4">
+            {addresses.map((address) => (
+              <Link
+                key={address.id}
+                to={`/account/addresses/${address.id}`}
+                className={`block rounded-xl border p-4 transition-colors hover:border-emerald-500 hover:bg-emerald-50/60 ${
+                  address?.isDefault ? 'border-emerald-400 bg-emerald-50/70' : 'border-emerald-100 bg-white'
+                }`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-emerald-900">{address.receiverName}</h3>
+                      {address?.isDefault && (
+                        <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white">Mặc định</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-emerald-700">{address.receiverPhone}</p>
+                    <p className="mt-2 break-words text-sm text-emerald-900/70">{formatFullAddress(address)}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-emerald-700">Xem chi tiết</span>
+                </div>
+              </Link>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-6 text-sm text-emerald-700">
+            Chưa có địa chỉ giao hàng. Thêm địa chỉ đầu tiên để dùng khi thanh toán.
+          </div>
+        )}
+
+        {defaultAddress && (
+          <div className="mt-5 rounded-xl bg-emerald-900 px-4 py-3 text-sm text-white">
+            Địa chỉ mặc định: <span className="font-semibold">{formatFullAddress(defaultAddress)}</span>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

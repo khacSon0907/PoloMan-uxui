@@ -23,6 +23,9 @@ import Register from "../../pages/Register";
 import VerifyOtp from "../../pages/VerifyOtp";
 import ForgotPassword from "../../pages/ForgotPassword";
 import Account from "../../pages/Account";
+import AccountAddress from "../../pages/AccountAddress";
+import AccountOrderDetail from "../../pages/AccountOrderDetail";
+import AccountOrders from "../../pages/AccountOrders";
 import About from "../../pages/About";
 import ChangePassword from "../../pages/ChangePassword";
 import NotFound from "../../pages/NotFound";
@@ -61,6 +64,22 @@ export const router = createBrowserRouter([
       {
         path: "account",
         element: <Account />,
+      },
+      {
+        path: "account/orders",
+        element: <AccountOrders />,
+      },
+      {
+        path: "account/orders/:orderId",
+        element: <AccountOrderDetail />,
+      },
+      {
+        path: "account/addresses/:addressId",
+        element: <AccountAddress />,
+      },
+      {
+        path: "account/addresses/:addressId/:mode",
+        element: <AccountAddress />,
       },
       {
         path: "change-password",

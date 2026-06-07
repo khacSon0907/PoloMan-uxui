@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import {
   cartApi,
@@ -9,19 +9,48 @@ import {
   getUserId,
   normalizeCartItems,
 } from '../features/product'
-import { userApi } from '../features/user'
+import { orderApi } from '../features/order'
+import { addressApi, findLocationOption, userApi, useLocationOptions } from '../features/user'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
 const initialCheckoutForm = {
+  addressId: '',
   fullName: '',
   phoneNumber: '',
   address: '',
+  provinceCode: '',
   province: '',
+  districtCode: '',
   district: '',
+  wardCode: '',
   ward: '',
   note: '',
 }
+
+const paymentMethods = [
+  {
+    value: 'COD',
+    label: 'COD',
+    title: 'Thanh toan khi giao hang',
+    description: 'Tra tien mat sau khi nhan va kiem tra hang.',
+    paymentStatus: 'UNPAID',
+  },
+  {
+    value: 'MOMO',
+    label: 'Momo',
+    title: 'Vi Momo',
+    description: 'Dat don truoc, shop se gui thong tin thanh toan Momo.',
+    paymentStatus: 'PENDING',
+  },
+  {
+    value: 'BANK_TRANSFER',
+    label: 'Ngan hang',
+    title: 'Chuyen khoan ngan hang',
+    description: 'Shop xac nhan don sau khi nhan duoc chuyen khoan.',
+    paymentStatus: 'PENDING',
+  },
+]
 
 function getDisplayName(user) {
   return user?.fullName || user?.name || user?.username || user?.email || ''
@@ -31,6 +60,8 @@ function getUserAddress(user) {
   if (typeof user?.address === 'string') return user.address
 
   return (
+    user?.streetAddress ||
+    user?.address?.streetAddress ||
     user?.address?.detail ||
     user?.address?.street ||
     user?.shippingAddress ||
@@ -41,27 +72,106 @@ function getUserAddress(user) {
 
 function getCheckoutForm(user) {
   return {
+    addressId: '',
     fullName: getDisplayName(user),
     phoneNumber: user?.phoneNumber || user?.phone || '',
     address: getUserAddress(user),
-    province: user?.province || user?.address?.province || '',
-    district: user?.district || user?.address?.district || '',
-    ward: user?.ward || user?.address?.ward || '',
+    provinceCode: user?.provinceCode || user?.address?.provinceCode || '',
+    province: user?.province || user?.provinceName || user?.address?.province || user?.address?.provinceName || '',
+    districtCode: user?.districtCode || user?.address?.districtCode || '',
+    district: user?.district || user?.districtName || user?.address?.district || user?.address?.districtName || '',
+    wardCode: user?.wardCode || user?.address?.wardCode || '',
+    ward: user?.ward || user?.wardName || user?.address?.ward || user?.address?.wardName || '',
     note: '',
   }
 }
 
+function getCheckoutFormFromAddress(address, fallbackUser) {
+  return {
+    addressId: address?.id || '',
+    fullName: address?.receiverName || getDisplayName(fallbackUser),
+    phoneNumber: address?.receiverPhone || fallbackUser?.phoneNumber || fallbackUser?.phone || '',
+    address: address?.streetAddress || address?.address || '',
+    provinceCode: address?.provinceCode || '',
+    province: address?.provinceName || address?.province || '',
+    districtCode: address?.districtCode || '',
+    district: address?.districtName || address?.district || '',
+    wardCode: address?.wardCode || '',
+    ward: address?.wardName || address?.ward || '',
+    note: '',
+  }
+}
+
+function getAddressValidationError(values) {
+  if (!values.fullName.trim()) return 'Vui long nhap ho ten nguoi nhan.'
+  if (!values.phoneNumber.trim()) return 'Vui long nhap so dien thoai nguoi nhan.'
+  if (!values.provinceCode || !values.province) return 'Vui long chon tinh/thanh pho.'
+  if (!values.districtCode || !values.district) return 'Vui long chon quan/huyen.'
+  if (!values.wardCode || !values.ward) return 'Vui long chon phuong/xa.'
+  if (!values.address.trim()) return 'Vui long nhap dia chi chi tiet.'
+
+  return ''
+}
+
+function getCreateAddressPayload(values) {
+  return {
+    receiverName: values.fullName.trim(),
+    receiverPhone: values.phoneNumber.trim(),
+    provinceCode: values.provinceCode,
+    districtCode: values.districtCode,
+    wardCode: values.wardCode,
+    provinceName: values.province,
+    districtName: values.district,
+    wardName: values.ward,
+    streetAddress: values.address.trim(),
+    isDefault: true,
+  }
+}
+
+function getReceiverAddress(values) {
+  return [values.address, values.ward, values.district, values.province]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
+function getCreateOrderItems(items) {
+  return items.map((item) => ({
+    productId: item.productId || '',
+    productName: item.name || item.productName || '',
+    productImage: item.image || item.productImage || '',
+    colorId: item.colorId || '',
+    colorName: item.colorName || '',
+    sizeId: item.sizeId || '',
+    sizeName: item.size || item.sizeName || '',
+    quantity: Number(item.quantity || 1),
+  }))
+}
+
 function Cart() {
+  const navigate = useNavigate()
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [items, setItems] = useState(() => cartStorage.getItems())
   const [checkoutForm, setCheckoutForm] = useState(() => getCheckoutForm(tokenStorage.getUser()))
+  const [paymentMethod, setPaymentMethod] = useState('COD')
   const [profileMessage, setProfileMessage] = useState('')
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [addresses, setAddresses] = useState([])
   const user = authSnapshot.user
   const userId = getUserId(user)
   const isAuthenticated = authSnapshot.isAuthenticated
   const isAuthInitializing = authSnapshot.isInitializing
+  const {
+    provinces,
+    districts,
+    wards,
+    isLoadingProvinces,
+    isLoadingDistricts,
+    isLoadingWards,
+    error: locationError,
+  } = useLocationOptions(checkoutForm.provinceCode, checkoutForm.districtCode)
 
   usePageMeta({
     title: 'Gio hang cua ban | PoloMan',
@@ -154,10 +264,161 @@ function Cart() {
     }
   }, [isAuthInitializing, isAuthenticated])
 
+  useEffect(() => {
+    let isMounted = true
+
+    if (!userId) {
+      Promise.resolve().then(() => {
+        if (isMounted) setAddresses([])
+      })
+      return () => {
+        isMounted = false
+      }
+    }
+
+    addressApi
+      .getAddresses(userId)
+      .then((list) => {
+        if (!isMounted) return
+
+        setAddresses(list)
+
+        const defaultAddress = list.find((address) => address?.isDefault) || list[0]
+        if (!defaultAddress) return
+
+        setCheckoutForm((current) => ({
+          ...getCheckoutFormFromAddress(defaultAddress, user),
+          note: current.note,
+        }))
+      })
+      .catch((error) => {
+        if (isMounted) setErrorMessage(getApiMessage(error, 'Khong the tai danh sach dia chi.'))
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [userId, user])
+
   const handleCheckoutFieldChange = (event) => {
     const { name, value } = event.target
     setCheckoutForm((current) => ({ ...current, [name]: value }))
   }
+
+  const handleSavedAddressChange = (event) => {
+    const addressId = event.target.value
+    const selectedAddress = addresses.find((address) => address?.id === addressId)
+
+    if (!selectedAddress) {
+      setCheckoutForm((current) => ({
+        ...current,
+        addressId: '',
+        fullName: getDisplayName(user),
+        phoneNumber: user?.phoneNumber || user?.phone || '',
+        address: '',
+        provinceCode: '',
+        province: '',
+        districtCode: '',
+        district: '',
+        wardCode: '',
+        ward: '',
+      }))
+      return
+    }
+
+    setCheckoutForm((current) => ({
+      ...getCheckoutFormFromAddress(selectedAddress, user),
+      note: current.note,
+    }))
+  }
+
+  const handleCheckoutLocationChange = (event) => {
+    const { name, value } = event.target
+
+    setCheckoutForm((current) => {
+      if (name === 'provinceCode') {
+        const province = findLocationOption(provinces, value)
+
+        return {
+          ...current,
+          addressId: '',
+          provinceCode: province?.code || '',
+          province: province?.name || '',
+          districtCode: '',
+          district: '',
+          wardCode: '',
+          ward: '',
+        }
+      }
+
+      if (name === 'districtCode') {
+        const district = findLocationOption(districts, value)
+
+        return {
+          ...current,
+          addressId: '',
+          districtCode: district?.code || '',
+          district: district?.name || '',
+          wardCode: '',
+          ward: '',
+        }
+      }
+
+      const ward = findLocationOption(wards, value)
+
+      return {
+        ...current,
+        addressId: '',
+        wardCode: ward?.code || '',
+        ward: ward?.name || '',
+      }
+    })
+  }
+
+  useEffect(() => {
+    if (checkoutForm.provinceCode || !checkoutForm.province || !provinces.length) return
+
+    const province = findLocationOption(provinces, checkoutForm.province)
+    if (!province?.code) return
+
+    Promise.resolve().then(() => {
+      setCheckoutForm((current) => ({
+        ...current,
+        provinceCode: current.provinceCode || province.code,
+        province: current.province || province.name,
+      }))
+    })
+  }, [checkoutForm.province, checkoutForm.provinceCode, provinces])
+
+  useEffect(() => {
+    if (checkoutForm.districtCode || !checkoutForm.district || !districts.length) return
+
+    const district = findLocationOption(districts, checkoutForm.district)
+    if (!district?.code) return
+
+    Promise.resolve().then(() => {
+      setCheckoutForm((current) => ({
+        ...current,
+        districtCode: current.districtCode || district.code,
+        district: current.district || district.name,
+      }))
+    })
+  }, [checkoutForm.district, checkoutForm.districtCode, districts])
+
+  useEffect(() => {
+    if (checkoutForm.wardCode || !checkoutForm.ward || !wards.length) return
+
+    const ward = findLocationOption(wards, checkoutForm.ward)
+    if (!ward?.code) return
+
+    Promise.resolve().then(() => {
+      setCheckoutForm((current) => ({
+        ...current,
+        wardCode: current.wardCode || ward.code,
+        ward: current.ward || ward.name,
+      }))
+    })
+  }, [checkoutForm.ward, checkoutForm.wardCode, wards])
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
@@ -210,6 +471,82 @@ function Cart() {
       setErrorMessage('')
     } catch (error) {
       setErrorMessage(getApiMessage(error, 'Khong the xoa san pham khoi gio hang.'))
+    }
+  }
+
+  const handleCheckout = async () => {
+    if (!items.length) return
+
+    if (!userId) {
+      setErrorMessage('Vui long dang nhap de luu dia chi giao hang.')
+      return
+    }
+
+    const validationError = getAddressValidationError(checkoutForm)
+
+    if (validationError) {
+      setErrorMessage(validationError)
+      return
+    }
+
+    setIsCheckingOut(true)
+    setErrorMessage('')
+    setProfileMessage('')
+
+    try {
+      const savedAddress = checkoutForm.addressId
+        ? await addressApi.updateAddress(userId, checkoutForm.addressId, getCreateAddressPayload(checkoutForm))
+        : await addressApi.createAddress(userId, getCreateAddressPayload(checkoutForm))
+      const syncedAddress = savedAddress?.id
+        ? await addressApi.getAddress(userId, savedAddress.id).catch(() => savedAddress)
+        : savedAddress
+      const latestAddresses = await addressApi.getAddresses(userId).catch(() => [])
+
+      if (latestAddresses.length) setAddresses(latestAddresses)
+
+      tokenStorage.setUser({
+        ...user,
+        address: syncedAddress || {
+          streetAddress: checkoutForm.address.trim(),
+          provinceCode: checkoutForm.provinceCode,
+          districtCode: checkoutForm.districtCode,
+          wardCode: checkoutForm.wardCode,
+          provinceName: checkoutForm.province,
+          districtName: checkoutForm.district,
+          wardName: checkoutForm.ward,
+        },
+      })
+      setCheckoutForm((current) => ({
+        ...current,
+        addressId: syncedAddress?.id || current.addressId,
+      }))
+      const selectedPaymentMethod = paymentMethods.find((method) => method.value === paymentMethod) || paymentMethods[0]
+      const createdOrder = await orderApi.createOrder({
+        userId,
+        receiverName: checkoutForm.fullName.trim(),
+        receiverPhone: checkoutForm.phoneNumber.trim(),
+        receiverAddress: getReceiverAddress(checkoutForm),
+        items: getCreateOrderItems(items),
+        shippingFee,
+        discountAmount: discount,
+        paymentMethod: selectedPaymentMethod.value,
+        paymentStatus: selectedPaymentMethod.paymentStatus,
+        status: 'PENDING',
+        note: checkoutForm.note.trim(),
+      })
+
+      await cartApi.clearCart(userId).catch(() => null)
+      cartStorage.clear()
+      setItems([])
+      navigate('/account/orders', {
+        state: {
+          message: `Dat hang thanh cong${createdOrder?.orderCode ? `: ${createdOrder.orderCode}` : ''}.`,
+        },
+      })
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the tao don hang.'))
+    } finally {
+      setIsCheckingOut(false)
     }
   }
 
@@ -275,6 +612,22 @@ function Cart() {
           )}
 
           <div className="grid gap-4 rounded-2xl border border-emerald-100 bg-white/85 p-5 shadow-sm">
+            {isAuthenticated && (
+              <select
+                name="addressId"
+                value={checkoutForm.addressId}
+                onChange={handleSavedAddressChange}
+                className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Nhap dia chi moi</option>
+                {addresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {address.isDefault ? 'Mac dinh - ' : ''}
+                    {address.receiverName} - {address.streetAddress}, {address.wardName}, {address.districtName}, {address.provinceName}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               name="fullName"
               value={checkoutForm.fullName}
@@ -298,33 +651,51 @@ function Cart() {
             />
             <div className="grid gap-3 sm:grid-cols-3">
               <select
-                name="province"
-                value={checkoutForm.province}
-                onChange={handleCheckoutFieldChange}
+                name="provinceCode"
+                value={checkoutForm.provinceCode}
+                onChange={handleCheckoutLocationChange}
+                disabled={isLoadingProvinces}
                 className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               >
-                <option value="">Chon tinh/thanh pho</option>
-                {checkoutForm.province && <option value={checkoutForm.province}>{checkoutForm.province}</option>}
+                <option value="">{isLoadingProvinces ? 'Dang tai...' : 'Chon tinh/thanh pho'}</option>
+                {provinces.map((province) => (
+                  <option key={province.value} value={province.code}>
+                    {province.label}
+                  </option>
+                ))}
               </select>
               <select
-                name="district"
-                value={checkoutForm.district}
-                onChange={handleCheckoutFieldChange}
+                name="districtCode"
+                value={checkoutForm.districtCode}
+                onChange={handleCheckoutLocationChange}
+                disabled={!checkoutForm.provinceCode || isLoadingDistricts}
                 className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               >
-                <option value="">Chon quan/huyen</option>
-                {checkoutForm.district && <option value={checkoutForm.district}>{checkoutForm.district}</option>}
+                <option value="">{isLoadingDistricts ? 'Dang tai...' : 'Chon quan/huyen'}</option>
+                {districts.map((district) => (
+                  <option key={district.value} value={district.code}>
+                    {district.label}
+                  </option>
+                ))}
               </select>
               <select
-                name="ward"
-                value={checkoutForm.ward}
-                onChange={handleCheckoutFieldChange}
+                name="wardCode"
+                value={checkoutForm.wardCode}
+                onChange={handleCheckoutLocationChange}
+                disabled={!checkoutForm.districtCode || isLoadingWards}
                 className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               >
-                <option value="">Chon phuong/xa</option>
-                {checkoutForm.ward && <option value={checkoutForm.ward}>{checkoutForm.ward}</option>}
+                <option value="">{isLoadingWards ? 'Dang tai...' : 'Chon phuong/xa'}</option>
+                {wards.map((ward) => (
+                  <option key={ward.value} value={ward.code}>
+                    {ward.label}
+                  </option>
+                ))}
               </select>
             </div>
+            {locationError && (
+              <p className="text-sm font-semibold text-red-600">{locationError}</p>
+            )}
             <input
               name="note"
               value={checkoutForm.note}
@@ -336,17 +707,40 @@ function Cart() {
 
           <div className="space-y-3">
             <h2 className="text-xl font-black text-emerald-950">Hinh thuc thanh toan</h2>
-            <label className="block rounded-2xl border border-emerald-200 bg-white/85 p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <input type="radio" checked readOnly className="h-5 w-5 accent-emerald-800" />
-                <span className="rounded-md bg-emerald-800 px-3 py-2 text-sm font-black text-white">COD</span>
-                <span className="text-sm font-semibold text-emerald-950">Thanh toan khi giao hang</span>
-              </div>
-              <div className="mt-4 space-y-1 text-sm text-emerald-900/70">
-                <p>- Khach hang duoc kiem tra hang truoc khi nhan hang.</p>
-                <p>- Freeship don tu 399K.</p>
-              </div>
-            </label>
+            <div className="grid gap-3">
+              {paymentMethods.map((method) => {
+                const isSelected = paymentMethod === method.value
+
+                return (
+                  <label
+                    key={method.value}
+                    className={`block cursor-pointer rounded-2xl border p-5 shadow-sm transition-colors ${
+                      isSelected
+                        ? 'border-emerald-600 bg-white'
+                        : 'border-emerald-100 bg-white/85 hover:border-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={method.value}
+                        checked={isSelected}
+                        onChange={(event) => setPaymentMethod(event.target.value)}
+                        className="mt-1 h-5 w-5 accent-emerald-800"
+                      />
+                      <span className="rounded-md bg-emerald-800 px-3 py-2 text-sm font-black text-white">
+                        {method.label}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold text-emerald-950">{method.title}</span>
+                        <span className="mt-1 block text-sm text-emerald-900/65">{method.description}</span>
+                      </span>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
           </div>
         </section>
 
@@ -461,10 +855,11 @@ function Cart() {
             </div>
             <button
               type="button"
-              disabled={!items.length}
+              onClick={handleCheckout}
+              disabled={!items.length || isCheckingOut}
               className="mt-5 h-12 w-full rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Thanh toan
+              {isCheckingOut ? 'Dang tao don...' : 'Dat hang'}
             </button>
           </div>
         </aside>

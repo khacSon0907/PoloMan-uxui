@@ -35,10 +35,10 @@ function getAddressName(address, key) {
 
 function formatFullAddress(address) {
   return [
-    address?.streetAddress,
     getAddressName(address, 'ward'),
     getAddressName(address, 'district'),
     getAddressName(address, 'province'),
+    address?.streetAddress,
   ]
     .filter(Boolean)
     .join(', ')
@@ -67,7 +67,6 @@ function Account() {
       { label: 'Email', value: user?.email || 'Chưa cập nhật' },
       { label: 'Số điện thoại', value: user?.phoneNumber || 'Chưa cập nhật' },
       { label: 'Mã tài khoản', value: user?.id || 'Chưa cập nhật' },
-      { label: 'Vai trò', value: user?.roles?.length ? user.roles.join(', ') : 'Khách hàng' },
     ],
     [user],
   )

@@ -18,10 +18,10 @@ function getAddressName(address, key) {
 
 function formatFullAddress(address) {
   return [
-    address?.streetAddress,
     getAddressName(address, 'ward'),
     getAddressName(address, 'district'),
     getAddressName(address, 'province'),
+    address?.streetAddress,
   ]
     .filter(Boolean)
     .join(', ')
@@ -63,7 +63,7 @@ function getAddressValidationError(values) {
   if (!values.provinceCode || !values.provinceName) return 'Vui lòng chọn tỉnh/thành phố.'
   if (!values.districtCode || !values.districtName) return 'Vui lòng chọn quận/huyện.'
   if (!values.wardCode || !values.wardName) return 'Vui lòng chọn phường/xã.'
-  if (!values.streetAddress.trim()) return 'Vui lòng nhập địa chỉ chi tiết.'
+  if (!values.streetAddress.trim()) return 'Vui lòng nhập số nhà, tên đường, ngõ, tòa nhà.'
 
   return ''
 }
@@ -363,16 +363,6 @@ function AccountAddress() {
                 />
               </label>
             </div>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-emerald-700">Địa chỉ chi tiết</span>
-              <input
-                name="streetAddress"
-                value={form.streetAddress}
-                onChange={handleFieldChange}
-                disabled={isSaving}
-                className="h-11 rounded-md border border-emerald-200 px-3 text-sm outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
-              />
-            </label>
             <div className="grid gap-4 sm:grid-cols-3">
               <select
                 name="provinceCode"
@@ -417,6 +407,17 @@ function AccountAddress() {
                 ))}
               </select>
             </div>
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-emerald-700">Số nhà, tên đường, ngõ, tòa nhà...</span>
+              <input
+                name="streetAddress"
+                value={form.streetAddress}
+                onChange={handleFieldChange}
+                disabled={isSaving}
+                className="h-11 rounded-md border border-emerald-200 px-3 text-sm outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
+                placeholder="Số nhà, tên đường, ngõ, tòa nhà..."
+              />
+            </label>
             <label className="flex items-center gap-3 rounded-lg bg-emerald-50/70 px-3 py-3 text-sm font-medium text-emerald-800">
               <input
                 type="checkbox"

@@ -7,7 +7,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import AdminCategories from "../../pages/admin/AdminCategories";
 import AdminBanners from "../../pages/admin/AdminBanners";
 import AdminDashboard from "../../pages/admin/AdminDashboard";
-import AdminPlaceholder from "../../pages/admin/AdminPlaceholder";
+import AdminOrders from "../../pages/admin/AdminOrders";
 import AdminProductCreate from "../../pages/admin/AdminProductCreate";
 import AdminProductDetail from "../../pages/admin/AdminProductDetail";
 import AdminProducts from "../../pages/admin/AdminProducts";
@@ -15,6 +15,7 @@ import AdminUsers from "../../pages/admin/AdminUsers";
 import Home from "../../pages/Home";
 
 import Cart from "../../pages/Cart";
+import CheckoutPayment from "../../pages/CheckoutPayment";
 import Favorites from "../../pages/Favorites";
 import ProductDetail from "../../pages/ProductDetail";
 import Products from "../../pages/Products";
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
       {
         path: "cart",
         element: <Cart />,
+      },
+      {
+        path: "checkout/payment",
+        element: <CheckoutPayment />,
       },
       {
         path: "favorites",
@@ -130,7 +135,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "orders",
-            element: <AdminPlaceholder title="Quan ly don hang" />,
+            element: <AdminOrders />,
           },
           {
             path: "users",

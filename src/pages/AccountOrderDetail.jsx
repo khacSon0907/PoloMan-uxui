@@ -40,6 +40,7 @@ function getPaymentMethodLabel(method) {
   const labels = {
     COD: 'Thanh toan khi giao hang',
     MOMO: 'Vi Momo',
+    PAYOS: 'PayOS QR',
     BANK_TRANSFER: 'Chuyen khoan ngan hang',
   }
 

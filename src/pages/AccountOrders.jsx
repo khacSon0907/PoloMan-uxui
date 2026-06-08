@@ -39,6 +39,7 @@ function getPaymentLabel(method) {
   const labels = {
     COD: 'COD',
     MOMO: 'Momo',
+    PAYOS: 'PayOS',
     BANK_TRANSFER: 'Ngan hang',
   }
 

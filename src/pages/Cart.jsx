@@ -34,21 +34,18 @@ const paymentMethods = [
     label: 'COD',
     title: 'Thanh toan khi giao hang',
     description: 'Tra tien mat sau khi nhan va kiem tra hang.',
-    paymentStatus: 'UNPAID',
   },
   {
     value: 'MOMO',
     label: 'Momo',
     title: 'Vi Momo',
     description: 'Dat don truoc, shop se gui thong tin thanh toan Momo.',
-    paymentStatus: 'PENDING',
   },
   {
-    value: 'BANK_TRANSFER',
-    label: 'Ngan hang',
-    title: 'Chuyen khoan ngan hang',
-    description: 'Shop xac nhan don sau khi nhan duoc chuyen khoan.',
-    paymentStatus: 'PENDING',
+    value: 'PAYOS',
+    label: 'PayOS',
+    title: 'Chuyen khoan QR',
+    description: 'Tao ma QR PayOS de chuyen khoan va xac nhan thanh toan tu dong.',
   },
 ]
 
@@ -108,7 +105,7 @@ function getAddressValidationError(values) {
   if (!values.provinceCode || !values.province) return 'Vui long chon tinh/thanh pho.'
   if (!values.districtCode || !values.district) return 'Vui long chon quan/huyen.'
   if (!values.wardCode || !values.ward) return 'Vui long chon phuong/xa.'
-  if (!values.address.trim()) return 'Vui long nhap dia chi chi tiet.'
+  if (!values.address.trim()) return 'Vui long nhap so nha, ten duong, ngo, toa nha.'
 
   return ''
 }
@@ -129,7 +126,7 @@ function getCreateAddressPayload(values) {
 }
 
 function getReceiverAddress(values) {
-  return [values.address, values.ward, values.district, values.province]
+  return [values.ward, values.district, values.province, values.address]
     .map((part) => String(part || '').trim())
     .filter(Boolean)
     .join(', ')
@@ -530,14 +527,27 @@ function Cart() {
         shippingFee,
         discountAmount: discount,
         paymentMethod: selectedPaymentMethod.value,
-        paymentStatus: selectedPaymentMethod.paymentStatus,
-        status: 'PENDING',
         note: checkoutForm.note.trim(),
       })
 
       await cartApi.clearCart(userId).catch(() => null)
       cartStorage.clear()
       setItems([])
+
+      if (selectedPaymentMethod.value === 'PAYOS' && createdOrder?.payment?.qrCode) {
+        const paymentPayload = {
+          order: createdOrder,
+          items: Array.isArray(createdOrder?.items) && createdOrder.items.length ? createdOrder.items : items,
+        }
+
+        sessionStorage.setItem('poloman:checkout-payment', JSON.stringify(paymentPayload))
+        navigate('/checkout/payment', {
+          replace: true,
+          state: paymentPayload,
+        })
+        return
+      }
+
       navigate('/account/orders', {
         state: {
           message: `Dat hang thanh cong${createdOrder?.orderCode ? `: ${createdOrder.orderCode}` : ''}.`,
@@ -642,13 +652,6 @@ function Cart() {
               className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
               placeholder="So dien thoai"
             />
-            <input
-              name="address"
-              value={checkoutForm.address}
-              onChange={handleCheckoutFieldChange}
-              className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
-              placeholder="Dia chi"
-            />
             <div className="grid gap-3 sm:grid-cols-3">
               <select
                 name="provinceCode"
@@ -693,6 +696,13 @@ function Cart() {
                 ))}
               </select>
             </div>
+            <input
+              name="address"
+              value={checkoutForm.address}
+              onChange={handleCheckoutFieldChange}
+              className="h-12 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 text-sm outline-none focus:border-emerald-600"
+              placeholder="So nha, ten duong, ngo, toa nha..."
+            />
             {locationError && (
               <p className="text-sm font-semibold text-red-600">{locationError}</p>
             )}
@@ -859,7 +869,7 @@ function Cart() {
               disabled={!items.length || isCheckingOut}
               className="mt-5 h-12 w-full rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isCheckingOut ? 'Dang tao don...' : 'Dat hang'}
+              {isCheckingOut ? 'Dang tao don...' : paymentMethod === 'PAYOS' ? 'Thanh toan QR' : 'Dat hang'}
             </button>
           </div>
         </aside>

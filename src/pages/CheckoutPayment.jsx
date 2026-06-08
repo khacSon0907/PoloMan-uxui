@@ -1,8 +1,12 @@
-import { useMemo } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { QRCodeCanvas } from 'qrcode.react'
 
+import { orderApi } from '../features/order'
 import { formatCurrency } from '../features/product'
+import { getApiMessage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
+import { subscribePaymentStatus } from '../shared/services/paymentSocket'
 
 function readStoredPayment() {
   try {
@@ -11,18 +15,6 @@ function readStoredPayment() {
   } catch {
     return null
   }
-}
-
-function isImageQrCode(qrCode) {
-  const value = String(qrCode || '')
-  return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image/')
-}
-
-function getQrImageSrc(payment) {
-  if (isImageQrCode(payment?.qrCode)) return payment.qrCode
-  if (!payment?.qrCode) return ''
-
-  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(payment.qrCode)}`
 }
 
 function getItemImage(item) {
@@ -41,12 +33,32 @@ function getItemTotal(item) {
   return Number(item?.totalPrice || 0) || Number(item?.unitPrice || item?.price || 0) * getItemQuantity(item)
 }
 
+function getCreateOrderItems(items) {
+  return items.map((item) => ({
+    productId: item.productId || '',
+    productName: item.productName || item.name || '',
+    productImage: item.productImage || item.image || '',
+    colorId: item.colorId || '',
+    colorName: item.colorName || '',
+    sizeId: item.sizeId || '',
+    sizeName: item.sizeName || item.size || '',
+    quantity: Number(item.quantity || 1),
+  }))
+}
+
 function CheckoutPayment() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const socketCleanupRef = useRef(null)
   const payload = useMemo(() => location.state || readStoredPayment(), [location.state])
   const order = payload?.order
   const payment = order?.payment
   const items = Array.isArray(payload?.items) ? payload.items : []
+  const [socketStatus, setSocketStatus] = useState('connecting')
+  const [statusMessage, setStatusMessage] = useState('Dang ket noi cong thanh toan...')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isCreatingCodOrder, setIsCreatingCodOrder] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   usePageMeta({
     title: 'Thanh toan QR | PoloMan',
@@ -54,13 +66,105 @@ function CheckoutPayment() {
     canonicalPath: '/checkout/payment',
   })
 
+  useEffect(() => {
+    if (!payment?.orderId) return undefined
+
+    Promise.resolve().then(() => {
+      setSocketStatus('connecting')
+      setStatusMessage('Dang ket noi cong thanh toan...')
+      setErrorMessage('')
+    })
+
+    const cleanup = subscribePaymentStatus(payment.orderId, {
+      onConnect: () => {
+        setSocketStatus('connected')
+        setStatusMessage('Dang cho xac nhan thanh toan tu PayOS.')
+      },
+      onMessage: (message) => {
+        const nextStatus = String(message?.paymentStatus || '').toUpperCase()
+
+        if (nextStatus === 'PAID') {
+          setSocketStatus('paid')
+          setStatusMessage(message?.message || 'Thanh toan thanh cong.')
+          sessionStorage.removeItem('poloman:checkout-payment')
+          socketCleanupRef.current?.()
+          socketCleanupRef.current = null
+
+          window.setTimeout(() => {
+            navigate(`/account/orders/${message?.orderId || payment.orderId || order.id}`, { replace: true })
+          }, 900)
+          return
+        }
+
+        if (nextStatus === 'FAILED') {
+          setSocketStatus('failed')
+          setErrorMessage(message?.message || 'Thanh toan that bai. Vui long thu lai hoac doi sang COD.')
+          socketCleanupRef.current?.()
+          socketCleanupRef.current = null
+        }
+      },
+      onError: (error) => {
+        setSocketStatus('error')
+        setErrorMessage(error?.message || 'Khong the ket noi trang thai thanh toan.')
+      },
+    })
+
+    socketCleanupRef.current = cleanup
+
+    return () => {
+      cleanup()
+      socketCleanupRef.current = null
+    }
+  }, [navigate, order?.id, payment?.orderId, retryCount])
+
+  const handleRetryPayment = () => {
+    setSocketStatus('connecting')
+    setErrorMessage('')
+    setStatusMessage('Dang ket noi lai cong thanh toan...')
+    setRetryCount((current) => current + 1)
+  }
+
+  const handleSwitchToCod = async () => {
+    if (!order) return
+
+    setIsCreatingCodOrder(true)
+    setErrorMessage('')
+
+    try {
+      const codOrder = await orderApi.createOrder({
+        userId: order.userId,
+        receiverName: order.receiverName,
+        receiverPhone: order.receiverPhone,
+        receiverAddress: order.receiverAddress,
+        items: getCreateOrderItems(items),
+        shippingFee: order.shippingFee,
+        discountAmount: order.discountAmount,
+        paymentMethod: 'COD',
+        note: order.note,
+      })
+
+      sessionStorage.removeItem('poloman:checkout-payment')
+      navigate('/account/orders', {
+        replace: true,
+        state: {
+          message: `Da doi sang COD${codOrder?.orderCode ? `: ${codOrder.orderCode}` : ''}.`,
+        },
+      })
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the doi sang COD.'))
+    } finally {
+      setIsCreatingCodOrder(false)
+    }
+  }
+
   if (!order || !payment?.qrCode) {
     return <Navigate to="/cart" replace />
   }
 
-  const qrImageSrc = getQrImageSrc(payment)
   const orderNumber = order.orderCode || payment.orderCode || order.id
   const paymentAmount = payment.amount || order.totalAmount
+  const isPaid = socketStatus === 'paid'
+  const isFailed = socketStatus === 'failed'
 
   return (
     <div className="space-y-6 rounded-3xl bg-[linear-gradient(135deg,#fbfdf8_0%,#f1f8ee_52%,#ffffff_100%)] p-4 sm:p-6 lg:p-8">
@@ -154,15 +258,9 @@ function CheckoutPayment() {
               </div>
 
               <div className="p-5">
-                {qrImageSrc ? (
-                  <div className="mx-auto flex max-w-80 items-center justify-center rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_18px_50px_rgba(20,83,45,0.12)]">
-                    <img src={qrImageSrc} alt="Ma QR thanh toan PayOS" className="h-auto w-full" />
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/70 p-6 text-sm font-semibold text-emerald-700">
-                    Chua co ma QR tu cong thanh toan.
-                  </div>
-                )}
+                <div className="mx-auto flex max-w-80 items-center justify-center rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_18px_50px_rgba(20,83,45,0.12)]">
+                  <QRCodeCanvas value={payment.qrCode} size={288} level="M" includeMargin className="h-auto w-full" />
+                </div>
 
                 <div className="mt-5 overflow-hidden rounded-xl border border-emerald-100">
                   <div className="grid grid-cols-[110px_1fr] border-b border-emerald-100 text-sm">
@@ -178,6 +276,49 @@ function CheckoutPayment() {
                 <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
                   Vui long chuyen dung so tien {formatCurrency(paymentAmount)} va giu nguyen noi dung ma don #{orderNumber}.
                 </div>
+
+                <div
+                  className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold leading-6 ${
+                    isPaid
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : isFailed
+                        ? 'bg-red-50 text-red-600'
+                        : 'bg-sky-50 text-sky-700'
+                  }`}
+                >
+                  {errorMessage || statusMessage}
+                </div>
+
+                {payment.checkoutUrl && !isPaid && (
+                  <a
+                    href={payment.checkoutUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 flex h-11 w-full items-center justify-center rounded-lg border border-emerald-200 px-5 text-sm font-bold text-emerald-800 hover:border-emerald-600"
+                  >
+                    Mo trang thanh toan PayOS
+                  </a>
+                )}
+
+                {isFailed && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <button
+                      type="button"
+                      onClick={handleRetryPayment}
+                      className="h-11 rounded-lg border border-emerald-200 px-5 text-sm font-bold text-emerald-800 hover:border-emerald-600"
+                    >
+                      Thu lai QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSwitchToCod}
+                      disabled={isCreatingCodOrder}
+                      className="h-11 rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isCreatingCodOrder ? 'Dang doi...' : 'Doi sang COD'}
+                    </button>
+                  </div>
+                )}
 
                 <Link
                   to="/account/orders"

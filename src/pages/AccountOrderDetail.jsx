@@ -91,14 +91,19 @@ function AccountOrderDetail() {
     }
 
     if (!authSnapshot.isAuthenticated || !orderId) {
-      setIsLoading(false)
+      Promise.resolve().then(() => {
+        if (isMounted) setIsLoading(false)
+      })
       return () => {
         isMounted = false
       }
     }
 
-    setIsLoading(true)
-    setErrorMessage('')
+    Promise.resolve().then(() => {
+      if (!isMounted) return
+      setIsLoading(true)
+      setErrorMessage('')
+    })
 
     orderApi
       .getOrder(orderId)

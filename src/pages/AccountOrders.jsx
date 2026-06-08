@@ -79,14 +79,19 @@ function AccountOrders() {
     }
 
     if (!authSnapshot.isAuthenticated || !userId) {
-      setIsLoading(false)
+      Promise.resolve().then(() => {
+        if (isMounted) setIsLoading(false)
+      })
       return () => {
         isMounted = false
       }
     }
 
-    setIsLoading(true)
-    setErrorMessage('')
+    Promise.resolve().then(() => {
+      if (!isMounted) return
+      setIsLoading(true)
+      setErrorMessage('')
+    })
 
     orderApi
       .getOrdersByUserId(userId)

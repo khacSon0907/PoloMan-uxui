@@ -4,7 +4,6 @@ import SockJS from 'sockjs-client'
 function getBackendUrl() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL
   if (backendUrl) return backendUrl.replace(/\/$/, '')
-
   const apiUrl = import.meta.env.VITE_API_URL || ''
   return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
 }

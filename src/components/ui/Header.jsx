@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { authApi } from '../../features/auth'
 import { cartApi, cartStorage, CART_UPDATED_EVENT, getUserId } from '../../features/product'
 import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
+import PromotionTicker from './PromotionTicker'
 
 const navItems = [
   { to: '/', label: 'Trang chủ' },
@@ -149,6 +150,7 @@ function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/94 backdrop-blur-md">
+      <PromotionTicker />
       <div className="mx-auto h-16 max-w-[1500px] px-4 sm:h-20 sm:px-6 lg:h-24 lg:px-10">
         <div className="relative flex h-full items-center justify-between">
           <div className="flex min-w-0 flex-1 items-center pr-14 sm:pr-24 lg:pr-6">

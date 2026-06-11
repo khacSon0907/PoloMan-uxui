@@ -8,6 +8,7 @@ import AdminCategories from "../../pages/admin/AdminCategories";
 import AdminBanners from "../../pages/admin/AdminBanners";
 import AdminDashboard from "../../pages/admin/AdminDashboard";
 import AdminOrders from "../../pages/admin/AdminOrders";
+import AdminPromotionBanners from "../../pages/admin/AdminPromotionBanners";
 import AdminProductCreate from "../../pages/admin/AdminProductCreate";
 import AdminProductDetail from "../../pages/admin/AdminProductDetail";
 import AdminProducts from "../../pages/admin/AdminProducts";
@@ -132,6 +133,10 @@ export const router = createBrowserRouter([
           {
             path: "banners",
             element: <AdminBanners />,
+          },
+          {
+            path: "promotion-banners",
+            element: <AdminPromotionBanners />,
           },
           {
             path: "orders",

@@ -35,4 +35,8 @@
   .scrollbar-hidden::-webkit-scrollbar {
     display: none;
   }
+
+  .promotion-swiper .swiper-wrapper {
+    transition-timing-function: linear !important;
+  }
 }

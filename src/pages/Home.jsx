@@ -31,6 +31,10 @@ const fallbackHeroBanner = {
   linkUrl: "/products",
 };
 
+function getCategoryFallbackImage(index) {
+  return categoryImages[index % categoryImages.length];
+}
+
 function Home() {
   const [categories, setCategories] = useState(fallbackCategories);
   const [heroBanner, setHeroBanner] = useState(fallbackHeroBanner);
@@ -251,28 +255,33 @@ function Home() {
                 const categoryIdx = categories.findIndex(
                   (c) => (c.id || c.slug) === (cat.id || cat.slug),
                 );
-                const imageUrl =
-                  categoryImages[
-                    (categoryIdx >= 0 ? categoryIdx : idx) %
-                      categoryImages.length
-                  ];
+                const fallbackImageUrl = getCategoryFallbackImage(
+                  categoryIdx >= 0 ? categoryIdx : idx,
+                );
+                const imageUrl = cat.bannerUrl || fallbackImageUrl;
 
                 return (
                   <Link
                     key={cat.id || cat.slug || cat.name}
                     to={`/products?category=${cat.slug || cat.id || "all"}`}
-                    className="group relative min-h-64 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-950 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_22px_55px_rgba(20,83,45,0.18)]"
+                    className="group relative min-h-72 overflow-hidden rounded-lg border border-emerald-100 bg-emerald-950 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_22px_55px_rgba(20,83,45,0.18)]"
                   >
                     <img
                       src={imageUrl}
                       alt={cat.name}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(event) => {
+                        event.currentTarget.onerror = null;
+                        event.currentTarget.src = fallbackImageUrl;
+                      }}
+                      className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,44,34,0.10)_0%,rgba(2,44,34,0.28)_48%,rgba(2,44,34,0.86)_100%)]" />
-                    <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 p-5 text-white sm:p-6">
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,44,34,0.02)_0%,rgba(2,44,34,0.24)_46%,rgba(2,44,34,0.90)_100%)]" />
+                    <div className="absolute left-4 top-4 z-10">
                       <span className="inline-flex rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/85 backdrop-blur">
                         Bo suu tap
                       </span>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 p-5 text-white sm:p-6">
                       <div className="space-y-2">
                         <h3 className="line-clamp-2 text-xl font-black uppercase tracking-tight sm:text-2xl">
                           {cat.name}

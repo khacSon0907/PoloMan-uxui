@@ -12,6 +12,7 @@ import AdminPromotionBanners from "../../pages/admin/AdminPromotionBanners";
 import AdminProductCreate from "../../pages/admin/AdminProductCreate";
 import AdminProductDetail from "../../pages/admin/AdminProductDetail";
 import AdminProducts from "../../pages/admin/AdminProducts";
+import AdminRoles from "../../pages/admin/AdminRoles";
 import AdminUsers from "../../pages/admin/AdminUsers";
 import Home from "../../pages/Home";
 
@@ -145,6 +146,10 @@ export const router = createBrowserRouter([
           {
             path: "users",
             element: <AdminUsers />,
+          },
+          {
+            path: "roles",
+            element: <AdminRoles />,
           },
         ],
       },

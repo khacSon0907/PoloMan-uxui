@@ -11,6 +11,7 @@ const adminNavItems = [
   { to: '/admin/promotion-banners', label: 'Promotion' },
   { to: '/admin/orders', label: 'Don hang' },
   { to: '/admin/users', label: 'Khach hang' },
+  { to: '/admin/roles', label: 'Roles' },
 ]
 
 function getDisplayName(user) {

@@ -33,4 +33,11 @@ export const userApi = {
     const response = await http.get("/users/all");
     return normalizeUserList(response);
   },
+
+  async assignRoles(userId, roleIds) {
+    const response = await http.put(`/users/${userId}/roles`, {
+      roleIds: Array.isArray(roleIds) ? roleIds : [],
+    });
+    return unwrapApiResponse(response);
+  },
 };

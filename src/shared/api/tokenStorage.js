@@ -62,6 +62,27 @@ export function normalizeRoles(roles) {
   return []
 }
 
+function normalizeRoleIds(roleIds) {
+  if (!roleIds) return []
+
+  if (roleIds instanceof Set) {
+    return Array.from(roleIds).map(String).filter(Boolean)
+  }
+
+  if (Array.isArray(roleIds)) {
+    return roleIds.map(String).filter(Boolean)
+  }
+
+  if (typeof roleIds === 'string') {
+    return roleIds
+      .split(',')
+      .map((roleId) => roleId.trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
+
 export function hasRole(user, role) {
   const expectedRole = String(role).toUpperCase()
   return normalizeRoles(user?.roles || user?.role).some(
@@ -102,6 +123,7 @@ function decodeJwtPayload(token) {
       roles: normalizeRoles(
         decodedPayload.roles || decodedPayload.role || decodedPayload.authorities,
       ),
+      roleIds: normalizeRoleIds(decodedPayload.roleIds),
     }
   } catch {
     return null
@@ -115,6 +137,7 @@ function normalizeUser(user, token) {
         ...decodedUser,
         ...user,
         roles: normalizeRoles(user.roles || user.role || decodedUser?.roles),
+        roleIds: normalizeRoleIds(user.roleIds || decodedUser?.roleIds),
       }
     : null
 
@@ -135,6 +158,7 @@ function normalizeUser(user, token) {
     ...decodedUser,
     ...currentUser,
     roles: normalizeRoles(decodedUser.roles || currentUser.roles || currentUser.role),
+    roleIds: normalizeRoleIds(decodedUser.roleIds || currentUser.roleIds),
   }
 }
 

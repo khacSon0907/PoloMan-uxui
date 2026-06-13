@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { productApi } from "../../features/product";
 import { getApiMessage } from "../../shared/api";
@@ -59,9 +59,11 @@ function getMainImage(product) {
 }
 
 function AdminProductDetail() {
+  const navigate = useNavigate();
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const colors = useMemo(() => getColors(product), [product]);
   const mainImageUrl = getImageUrl(getMainImage(product));
@@ -111,6 +113,25 @@ function AdminProductDetail() {
       isMounted = false;
     };
   }, [id]);
+
+  const handleDeleteProduct = async () => {
+    const productId = getProductId(product);
+
+    if (!productId) return;
+    if (!window.confirm("Ban co chac muon xoa san pham nay?")) return;
+
+    setIsDeleting(true);
+    setErrorMessage("");
+
+    try {
+      await productApi.delete(productId);
+      navigate("/admin/products", { replace: true });
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, "Khong the xoa san pham."));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -167,6 +188,14 @@ function AdminProductDetail() {
             >
               Update
             </Link>
+            <button
+              type="button"
+              onClick={handleDeleteProduct}
+              disabled={isDeleting}
+              className="flex h-10 items-center justify-center rounded-md bg-red-600 px-4 text-sm font-bold uppercase tracking-[0.12em] text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
           </div>
         </div>
 

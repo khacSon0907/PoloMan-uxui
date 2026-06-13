@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 
 import { addressApi, findLocationOption, useLocationOptions } from '../features/user'
@@ -66,6 +66,102 @@ function getAddressValidationError(values) {
   if (!values.streetAddress.trim()) return 'Vui lòng nhập số nhà, tên đường, ngõ, tòa nhà.'
 
   return ''
+}
+
+function normalizeSearchValue(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function LocationCombobox({
+  disabled,
+  isLoading,
+  name,
+  onChange,
+  options,
+  placeholder,
+  value,
+}) {
+  const containerRef = useRef(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedOption = useMemo(() => findLocationOption(options, value), [options, value])
+  const [query, setQuery] = useState(selectedOption?.label || '')
+
+  useEffect(() => {
+    if (!isOpen) setQuery(selectedOption?.label || '')
+  }, [isOpen, selectedOption])
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!containerRef.current?.contains(event.target)) setIsOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [])
+
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = normalizeSearchValue(query)
+
+    if (!normalizedQuery) return options
+
+    return options.filter((option) => normalizeSearchValue(option.label).includes(normalizedQuery))
+  }, [options, query])
+
+  const handleSelect = (option) => {
+    onChange(name, option.code)
+    setQuery(option.label)
+    setIsOpen(false)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value)
+          setIsOpen(true)
+        }}
+        onFocus={() => {
+          if (!disabled) setIsOpen(true)
+        }}
+        disabled={disabled}
+        placeholder={isLoading ? 'Đang tải...' : placeholder}
+        className="h-11 w-full rounded-md border border-emerald-200 px-3 pr-9 text-sm outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
+        autoComplete="off"
+      />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-700">⌄</span>
+
+      {isOpen && !disabled && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-emerald-200 bg-white py-1 shadow-lg">
+          {filteredOptions.length ? (
+            filteredOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleSelect(option)}
+                className={`block w-full px-3 py-2 text-left text-sm hover:bg-emerald-50 ${
+                  option.code === value ? 'bg-emerald-700 text-white hover:bg-emerald-700' : 'text-emerald-900'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-2 text-sm text-emerald-700">Không tìm thấy kết quả</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function AccountAddress() {
@@ -188,9 +284,7 @@ function AccountAddress() {
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }))
   }
 
-  const handleLocationChange = (event) => {
-    const { name, value } = event.target
-
+  const handleLocationChange = (name, value) => {
     setForm((current) => {
       if (name === 'provinceCode') {
         const province = findLocationOption(provinces, value)
@@ -397,48 +491,33 @@ function AccountAddress() {
               </label>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <select
+              <LocationCombobox
                 name="provinceCode"
                 value={form.provinceCode}
                 onChange={handleLocationChange}
+                options={provinces}
+                placeholder="Chọn tỉnh/thành phố"
+                isLoading={isLoadingProvinces}
                 disabled={isSaving || isLoadingProvinces}
-                className="h-11 rounded-md border border-emerald-200 px-3 text-sm outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
-              >
-                <option value="">{isLoadingProvinces ? 'Đang tải...' : 'Chọn tỉnh/thành phố'}</option>
-                {provinces.map((province) => (
-                  <option key={province.value} value={province.code}>
-                    {province.label}
-                  </option>
-                ))}
-              </select>
-              <select
+              />
+              <LocationCombobox
                 name="districtCode"
                 value={form.districtCode}
                 onChange={handleLocationChange}
+                options={districts}
+                placeholder="Chọn quận/huyện"
+                isLoading={isLoadingDistricts}
                 disabled={isSaving || !form.provinceCode || isLoadingDistricts}
-                className="h-11 rounded-md border border-emerald-200 px-3 text-sm outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
-              >
-                <option value="">{isLoadingDistricts ? 'Đang tải...' : 'Chọn quận/huyện'}</option>
-                {districts.map((district) => (
-                  <option key={district.value} value={district.code}>
-                    {district.label}
-                  </option>
-                ))}
-              </select>
-              <select
+              />
+              <LocationCombobox
                 name="wardCode"
                 value={form.wardCode}
                 onChange={handleLocationChange}
+                options={wards}
+                placeholder="Chọn phường/xã"
+                isLoading={isLoadingWards}
                 disabled={isSaving || !form.districtCode || isLoadingWards}
-                className="h-11 rounded-md border border-emerald-200 px-3 text-sm outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
-              >
-                <option value="">{isLoadingWards ? 'Đang tải...' : 'Chọn phường/xã'}</option>
-                {wards.map((ward) => (
-                  <option key={ward.value} value={ward.code}>
-                    {ward.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <label className="grid gap-2">
               <span className="text-sm font-medium text-emerald-700">Số nhà, tên đường, ngõ, tòa nhà...</span>

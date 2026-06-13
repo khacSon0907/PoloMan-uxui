@@ -38,4 +38,9 @@ export const productApi = {
     const response = await http.put(`/products/${id}`, payload)
     return getApiData(response)
   },
+
+  async delete(id) {
+    const response = await http.delete(`/products/${id}`)
+    return getApiData(response)
+  },
 }

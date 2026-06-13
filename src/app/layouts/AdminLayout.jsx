@@ -4,18 +4,22 @@ import { authApi } from '../../features/auth'
 import { tokenStorage } from '../../shared/api'
 
 const adminNavItems = [
-  { to: '/admin', label: 'Tong quan' },
-  { to: '/admin/categories', label: 'Danh muc' },
-  { to: '/admin/products', label: 'San pham' },
-  { to: '/admin/banners', label: 'Banner' },
-  { to: '/admin/promotion-banners', label: 'Promotion' },
-  { to: '/admin/orders', label: 'Don hang' },
-  { to: '/admin/users', label: 'Khach hang' },
-  { to: '/admin/roles', label: 'Roles' },
+  { to: '/admin', label: 'Tong quan', shortLabel: 'TQ' },
+  { to: '/admin/categories', label: 'Danh muc', shortLabel: 'DM' },
+  { to: '/admin/products', label: 'San pham', shortLabel: 'SP' },
+  { to: '/admin/banners', label: 'Banner', shortLabel: 'BN' },
+  { to: '/admin/promotion-banners', label: 'Promotion', shortLabel: 'PR' },
+  { to: '/admin/orders', label: 'Don hang', shortLabel: 'DH' },
+  { to: '/admin/users', label: 'Khach hang', shortLabel: 'KH' },
+  { to: '/admin/roles', label: 'Roles', shortLabel: 'RL' },
 ]
 
 function getDisplayName(user) {
   return user?.username || user?.fullName || user?.name || user?.email || 'Admin'
+}
+
+function getInitial(user) {
+  return getDisplayName(user).trim().charAt(0).toUpperCase() || 'A'
 }
 
 function AdminLayout() {
@@ -34,70 +38,108 @@ function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-emerald-50/45 text-neutral-950">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-emerald-800/20 bg-emerald-950 text-white lg:flex lg:flex-col">
-        <div className="border-b border-white/10 px-6 py-6">
-          <Link to="/admin" className="block text-2xl font-light tracking-[0.28em] uppercase text-white">
-            POLOMAN
+      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-emerald-900/20 bg-[#052f25] text-white shadow-2xl lg:flex lg:flex-col">
+        <div className="px-5 pb-5 pt-6">
+          <Link
+            to="/admin"
+            className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-inner shadow-white/5"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-400 text-lg font-black text-emerald-950">
+              P
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xl font-light tracking-[0.24em] uppercase text-white">
+                POLOMAN
+              </span>
+              <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200/70">
+                Admin console
+              </span>
+            </span>
           </Link>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/75">
-            Admin console
-          </p>
         </div>
 
-        <nav className="flex-1 px-4 py-5">
+        <nav className="flex-1 space-y-1 px-4">
+          <p className="px-3 pb-3 pt-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/45">
+            Quan ly
+          </p>
           {adminNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/admin'}
               className={({ isActive }) =>
-                `mb-1 flex h-11 items-center rounded-md px-3 text-sm font-semibold transition-colors ${
+                `group relative flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all ${
                   isActive
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'text-emerald-50/80 hover:bg-white/10 hover:text-white'
+                    ? 'bg-white text-emerald-950 shadow-lg shadow-black/15'
+                    : 'text-emerald-50/75 hover:bg-white/[0.08] hover:text-white'
                 }`
               }
             >
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black ${
+                      isActive
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-white/[0.08] text-emerald-100 group-hover:bg-white/[0.14]'
+                    }`}
+                  >
+                    {item.shortLabel}
+                  </span>
+                  <span className="flex-1">{item.label}</span>
+                  {isActive && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-white/10 p-4">
+        <div className="m-4 rounded-2xl border border-white/10 bg-white/[0.05] p-3">
+          <p className="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-100/45">
+            Storefront
+          </p>
           <Link
             to="/"
-            className="flex h-10 items-center rounded-md px-3 text-sm font-semibold text-emerald-50/80 hover:bg-white/10 hover:text-white"
+            className="mt-3 flex h-11 items-center justify-between rounded-xl bg-emerald-400 px-3 text-sm font-black text-emerald-950 hover:bg-emerald-300"
           >
-            Xem website
+            <span>Xem website</span>
+            <span aria-hidden="true">-</span>
           </Link>
         </div>
       </aside>
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur">
-          <div className="flex min-h-16 flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-8">
+      <div className="lg:pl-72">
+        <header className="sticky top-0 z-40 border-b border-emerald-100 bg-white/90 backdrop-blur-xl">
+          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-8">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-600/70">
                 Quan tri he thong
               </p>
-              <h1 className="mt-1 truncate text-xl font-semibold text-neutral-950">Bang dieu khien</h1>
+              <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-neutral-950">
+                Bang dieu khien
+              </h1>
             </div>
 
-            <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-3">
-              <div className="min-w-0 text-left sm:text-right">
-                <p className="truncate text-sm font-semibold text-neutral-950">{getDisplayName(user)}</p>
-                {user?.email && <p className="truncate text-xs text-neutral-500">{user.email}</p>}
+            <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
+              <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-2">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-sm font-black text-white">
+                  {getInitial(user)}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-neutral-950">{getDisplayName(user)}</p>
+                  {user?.email && <p className="truncate text-xs text-neutral-500">{user.email}</p>}
+                </div>
               </div>
               <Link
                 to="/"
-                className="hidden h-10 items-center rounded-md border border-emerald-200 px-3 text-sm font-semibold text-emerald-800 hover:border-emerald-600 hover:text-emerald-700 sm:flex"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-800 shadow-sm hover:border-emerald-500 hover:bg-emerald-50"
               >
                 Website
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="h-10 shrink-0 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 sm:px-4"
+                className="h-11 shrink-0 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white shadow-sm shadow-emerald-900/15 hover:bg-emerald-800"
               >
                 Dang xuat
               </button>

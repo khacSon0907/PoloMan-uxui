@@ -22,6 +22,8 @@ function getProductImageCount(product) {
 function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const totalStock = useMemo(
@@ -77,6 +79,27 @@ function AdminProducts() {
       isMounted = false;
     };
   }, []);
+
+  const handleConfirmDelete = async () => {
+    const productId = getProductId(productToDelete);
+
+    if (!productId) return;
+
+    setIsDeleting(true);
+    setErrorMessage("");
+
+    try {
+      await productApi.delete(productId);
+      setProducts((current) =>
+        current.filter((product) => String(getProductId(product)) !== String(productId)),
+      );
+      setProductToDelete(null);
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, "Khong the xoa san pham."));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -241,6 +264,13 @@ function AdminProducts() {
                           >
                             Update
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => setProductToDelete(product)}
+                            className="inline-flex h-8 items-center justify-center rounded-md bg-red-600 px-2.5 text-xs font-bold text-white hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -266,6 +296,49 @@ function AdminProducts() {
           </div>
         )}
       </section>
+
+      {productToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-xl font-black text-red-600">
+                !
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-neutral-950">
+                  Xoa san pham?
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-neutral-600">
+                  Ban co chac muon xoa san pham{" "}
+                  <span className="font-semibold text-neutral-950">
+                    {productToDelete.name}
+                  </span>
+                  ? Thao tac nay khong the hoan tac.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                disabled={isDeleting}
+                className="h-10 rounded-md border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:border-neutral-400 disabled:cursor-wait disabled:opacity-60"
+              >
+                Huy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="h-10 rounded-md bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isDeleting ? "Dang xoa..." : "Xoa san pham"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

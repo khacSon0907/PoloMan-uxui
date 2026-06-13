@@ -62,4 +62,9 @@ export const addressApi = {
 
     return unwrapApiResponse(response);
   },
+
+  async deleteAddress(userId, addressId) {
+    const response = await http.delete(`/addresses/${addressId}/user/${userId}`);
+    return unwrapApiResponse(response);
+  },
 };

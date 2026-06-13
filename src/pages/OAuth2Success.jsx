@@ -1,32 +1,18 @@
 import { useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import { authApi } from '../features/auth'
 import { tokenStorage } from '../shared/api'
 
 function OAuth2Success() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
   useEffect(() => {
     let isMounted = true
 
     async function completeOAuthLogin() {
-      const accessToken = searchParams.get('accessToken') || searchParams.get('token')
-
       try {
-        if (!tokenStorage.getAccessToken()) {
-          try {
-            await authApi.refreshToken()
-          } catch (refreshError) {
-            if (!accessToken) {
-              throw refreshError
-            }
-
-            tokenStorage.setAccessToken(accessToken)
-          }
-        }
-
+        await authApi.refreshToken()
         await authApi.getMe()
 
         if (isMounted) {
@@ -51,7 +37,7 @@ function OAuth2Success() {
     return () => {
       isMounted = false
     }
-  }, [navigate, searchParams])
+  }, [navigate])
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4">

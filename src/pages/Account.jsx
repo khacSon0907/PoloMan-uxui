@@ -58,6 +58,7 @@ function Account() {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
   const [addresses, setAddresses] = useState([])
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false)
+  const [deletingAddressId, setDeletingAddressId] = useState('')
   const [addressError, setAddressError] = useState('')
   const displayedAvatarUrl = avatarPreviewUrl || user?.avatarUrl
 
@@ -209,6 +210,30 @@ function Account() {
     setIsEditingProfile(true)
     setProfileError('')
     setProfileMessage('Ảnh mới đang được xem trước. Bấm lưu thay đổi để cập nhật.')
+  }
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!userId || !addressId) return
+    if (!window.confirm('Bạn có chắc muốn xóa địa chỉ này?')) return
+
+    setDeletingAddressId(addressId)
+    setAddressError('')
+
+    try {
+      await addressApi.deleteAddress(userId, addressId)
+
+      const nextAddresses = await addressApi.getAddresses(userId).catch(() =>
+        addresses.filter((address) => address?.id !== addressId),
+      )
+      const nextDefaultAddress = nextAddresses.find((address) => address?.isDefault) || nextAddresses[0] || null
+
+      setAddresses(nextAddresses)
+      tokenStorage.setUser({ ...tokenStorage.getUser(), address: nextDefaultAddress })
+    } catch (error) {
+      setAddressError(getApiMessage(error, 'Không thể xóa địa chỉ.'))
+    } finally {
+      setDeletingAddressId('')
+    }
   }
 
   if (!authSnapshot.isAuthenticated && !authSnapshot.isInitializing) {
@@ -366,10 +391,9 @@ function Account() {
         ) : addresses.length ? (
           <div className="mt-5 grid gap-4">
             {addresses.map((address) => (
-              <Link
+              <div
                 key={address.id}
-                to={`/account/addresses/${address.id}`}
-                className={`block rounded-xl border p-4 transition-colors hover:border-emerald-500 hover:bg-emerald-50/60 ${
+                className={`rounded-xl border p-4 transition-colors hover:border-emerald-500 hover:bg-emerald-50/60 ${
                   address?.isDefault ? 'border-emerald-400 bg-emerald-50/70' : 'border-emerald-100 bg-white'
                 }`}
               >
@@ -384,9 +408,24 @@ function Account() {
                     <p className="mt-1 text-sm text-emerald-700">{address.receiverPhone}</p>
                     <p className="mt-2 break-words text-sm text-emerald-900/70">{formatFullAddress(address)}</p>
                   </div>
-                  <span className="text-sm font-semibold text-emerald-700">Xem chi tiết</span>
+                  <div className="flex shrink-0 flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAddress(address.id)}
+                      disabled={deletingAddressId === address.id}
+                      className="h-9 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-600 hover:border-red-500 hover:text-red-700 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {deletingAddressId === address.id ? 'Đang xóa...' : 'Xóa'}
+                    </button>
+                    <Link
+                      to={`/account/addresses/${address.id}`}
+                      className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      Xem chi tiết
+                    </Link>
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (

@@ -80,6 +80,7 @@ function AccountAddress() {
   const [form, setForm] = useState(() => getAddressForm(null, tokenStorage.getUser()))
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const {
@@ -272,6 +273,28 @@ function AccountAddress() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!userId || !addressId || isNew) return
+    if (!window.confirm('Bạn có chắc muốn xóa địa chỉ này?')) return
+
+    setIsDeleting(true)
+    setError('')
+    setMessage('')
+
+    try {
+      await addressApi.deleteAddress(userId, addressId)
+
+      const latestAddresses = await addressApi.getAddresses(userId).catch(() => [])
+      const nextDefaultAddress = latestAddresses.find((item) => item?.isDefault) || latestAddresses[0] || null
+      tokenStorage.setUser({ ...tokenStorage.getUser(), address: nextDefaultAddress })
+      navigate('/account', { replace: true })
+    } catch (requestError) {
+      setError(getApiMessage(requestError, 'Không thể xóa địa chỉ.'))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (!authSnapshot.isAuthenticated && !authSnapshot.isInitializing) {
     return <Navigate to="/login" replace />
   }
@@ -295,12 +318,22 @@ function AccountAddress() {
               Quay lại profile
             </Link>
             {!isNew && !isEditing && (
-              <Link
-                to={`/account/addresses/${addressId}/edit`}
-                className="h-10 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-              >
-                Sửa địa chỉ
-              </Link>
+              <>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="h-10 rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:border-red-500 hover:text-red-700 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isDeleting ? 'Đang xóa...' : 'Xóa địa chỉ'}
+                </button>
+                <Link
+                  to={`/account/addresses/${addressId}/edit`}
+                  className="h-10 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  Sửa địa chỉ
+                </Link>
+              </>
             )}
           </div>
         </div>

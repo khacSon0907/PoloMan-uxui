@@ -29,6 +29,7 @@ function AdminCategories() {
   const [deletingId, setDeletingId] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState(() => new Set());
 
   const isEditing = Boolean(editingCategory?.id);
   const flattenedCategories = useMemo(
@@ -52,6 +53,35 @@ function AdminCategories() {
       }),
     [categories, editingCategory?.id],
   );
+  const categoryRows = useMemo(() => {
+    const rows = [];
+
+    categories.forEach((category) => {
+      rows.push({ ...category, level: 0, parentName: "" });
+
+      if (expandedCategoryIds.has(String(category.id))) {
+        flattenCategoryTree(category.children || []).forEach((child) => {
+          rows.push({
+            ...child,
+            level: child.level + 1,
+            parentName: category.name || "",
+          });
+        });
+      }
+    });
+
+    return rows;
+  }, [categories, expandedCategoryIds]);
+  const hasChildrenById = useMemo(
+    () =>
+      new Map(
+        categories.map((category) => [
+          String(category.id || ""),
+          Boolean(category.children?.length),
+        ]),
+      ),
+    [categories],
+  );
 
   const activeCount = useMemo(
     () =>
@@ -61,6 +91,21 @@ function AdminCategories() {
   );
 
   const inactiveCount = Math.max(flattenedCategories.length - activeCount, 0);
+
+  const toggleCategoryExpanded = (categoryId) => {
+    setExpandedCategoryIds((current) => {
+      const next = new Set(current);
+      const key = String(categoryId || "");
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  };
 
   const loadCategories = async () => {
     setIsLoading(true);
@@ -507,7 +552,7 @@ function AdminCategories() {
           <div className="flex min-h-48 items-center justify-center">
             <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-600" />
           </div>
-        ) : flattenedCategories.length ? (
+        ) : categoryRows.length ? (
           <div className="overflow-x-auto">
             <table className="min-w-[940px] w-full text-left">
               <thead className="border-b border-neutral-100 bg-neutral-50 text-xs font-bold uppercase tracking-[0.14em] text-neutral-500">
@@ -521,7 +566,7 @@ function AdminCategories() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {flattenedCategories.map((category) => (
+                {categoryRows.map((category) => (
                   <tr
                     key={category.id || category.slug || category.name}
                     className={
@@ -549,8 +594,21 @@ function AdminCategories() {
                           )}
                         </div>
                         <div>
-                          <div className="font-semibold text-neutral-950">
-                            {category.name}
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold text-neutral-950">
+                              {category.name}
+                            </div>
+                            {hasChildrenById.get(String(category.id || "")) && (
+                              <button
+                                type="button"
+                                onClick={() => toggleCategoryExpanded(category.id)}
+                                className="inline-flex h-7 items-center rounded-md border border-emerald-100 bg-emerald-50 px-2 text-xs font-bold text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
+                              >
+                                {expandedCategoryIds.has(String(category.id))
+                                  ? "An con"
+                                  : `${category.children?.length || 0} con`}
+                              </button>
+                            )}
                           </div>
                           <div className="mt-1 max-w-xl text-sm text-neutral-500">
                             {category.description || "Chua co mo ta"}

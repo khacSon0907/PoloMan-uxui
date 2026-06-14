@@ -39,6 +39,7 @@ function Icon({ name, className = 'h-5 w-5' }) {
     lock: 'M16 11V7a4 4 0 00-8 0v4m-2 0h12v10H6V11z',
     admin: 'M12 3l8 4v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z',
     logout: 'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3h-9m9 0l-3-3m3 3l-3 3',
+    chevronDown: 'M19.5 8.25l-7.5 7.5-7.5-7.5',
   }
 
   return (
@@ -77,15 +78,7 @@ function Header() {
         .filter((category) => category.children.length),
     [categoryTree],
   )
-  const productMenuImages = useMemo(
-    () =>
-      productMenuGroups
-        .flatMap((category) => category.children)
-        .filter((category) => category.bannerUrl)
-        .slice(0, 2),
-    [productMenuGroups],
-  )
-
+  const productMenuImages = []
   const isActive = (path) => location.pathname === path
   const closeMenus = () => {
     setMobileMenuOpen(false)
@@ -244,31 +237,40 @@ function Header() {
             <nav className="hidden items-center gap-4 whitespace-nowrap text-[12px] font-semibold uppercase tracking-[0.12em] text-emerald-900/65 md:flex xl:gap-7 xl:text-[13px] xl:tracking-[0.18em]">
               {navItems.map((item) =>
                 item.to === '/products' ? (
-                  <div key={item.to} className="group">
-                    <Link to={item.to} className={navClass(item.to)}>
-                      {item.label}
+                  <div key={item.to} className="group relative">
+                    <Link to={item.to} className={`${navClass(item.to)} inline-flex items-center gap-1.5`}>
+                      <span>{item.label}</span>
+                      <Icon
+                        name="chevronDown"
+                        className="h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-180"
+                      />
                     </Link>
 
                     {productMenuGroups.length > 0 && (
-                      <div className="invisible absolute left-1/2 top-full z-40 w-screen -translate-x-1/2 translate-y-3 border-t border-emerald-100 bg-white opacity-0 shadow-[0_28px_70px_rgba(15,23,42,0.10)] transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                        <div className="mx-auto grid max-w-[1500px] gap-8 px-10 py-10 lg:grid-cols-[minmax(0,1fr)_520px] xl:gap-12">
-                          <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="invisible absolute left-0 top-[calc(100%+34px)] z-40 w-[min(520px,calc(100vw-2rem))] translate-y-2 overflow-hidden rounded-xl border border-emerald-100 bg-white/98 opacity-0 shadow-[0_22px_60px_rgba(20,83,45,0.14)] backdrop-blur transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 lg:top-[calc(100%+46px)]">
+                        <div className="grid gap-4 p-5 sm:grid-cols-2">
                             {productMenuGroups.map((category) => (
-                              <div key={category.id || category.slug || category.name} className="space-y-3">
+                              <div
+                                key={category.id || category.slug || category.name}
+                                className="space-y-2"
+                              >
                                 <Link
                                   to={getCategoryUrl(category)}
-                                  className="block text-sm font-bold uppercase tracking-[0.18em] text-emerald-950 hover:text-emerald-700"
+                                  className="inline-flex rounded-full bg-emerald-900 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-emerald-800"
                                 >
                                   {category.name}
                                 </Link>
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                   {category.children.map((child) => (
                                     <Link
                                       key={child.id || child.slug || child.name}
                                       to={getCategoryUrl(child)}
-                                      className="block text-sm font-semibold normal-case tracking-normal text-emerald-900/70 hover:text-emerald-950"
+                                      className="group/item flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-semibold normal-case tracking-normal text-emerald-900/70 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                                     >
-                                      {child.name}
+                                      <span>{child.name}</span>
+                                      <span className="text-emerald-700/35 transition-transform group-hover/item:translate-x-0.5 group-hover/item:text-emerald-700">
+                                        -&gt;
+                                      </span>
                                     </Link>
                                   ))}
                                 </div>
@@ -276,7 +278,7 @@ function Header() {
                             ))}
                           </div>
 
-                          <div className="grid gap-5 sm:grid-cols-2">
+                          <div className="hidden">
                             {productMenuImages.map((category) => (
                               <Link
                                 key={category.id || category.slug || category.name}
@@ -300,7 +302,13 @@ function Header() {
                               </Link>
                             ))}
                           </div>
-                        </div>
+                        <Link
+                          to="/products"
+                          className="flex items-center justify-between border-t border-emerald-100 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-emerald-900 transition-colors hover:bg-emerald-50"
+                        >
+                          Tất cả sản phẩm
+                          <span aria-hidden="true">-&gt;</span>
+                        </Link>
                       </div>
                     )}
                   </div>

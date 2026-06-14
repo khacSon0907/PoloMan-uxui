@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import BannerFallback from "../assets/Banner.png";
@@ -36,11 +36,11 @@ function getCategoryFallbackImage(index) {
 }
 
 function Home() {
-  const [categories, setCategories] = useState(fallbackCategories);
+  const categoryScrollerRefs = useRef({});
+  const [categoryGroups, setCategoryGroups] = useState(fallbackCategories);
   const [heroBanner, setHeroBanner] = useState(fallbackHeroBanner);
   const [products, setProducts] = useState([]);
   const [bannerImageUrl, setBannerImageUrl] = useState("");
-  const [categoryIndex, setCategoryIndex] = useState(0);
 
   usePageMeta({
     title: "PoloMan Store | Thoi trang nam cao cap",
@@ -65,14 +65,16 @@ function Home() {
         categoryResult.value.length
       ) {
         const categoryTree = normalizeCategoryTree(categoryResult.value);
-        setCategories(
+        setCategoryGroups(
           categoryTree
             .filter((category) => category.active !== false)
-            .flatMap((category) =>
-              (category.children || []).filter(
+            .map((category) => ({
+              ...category,
+              children: (category.children || []).filter(
                 (child) => child.active !== false,
               ),
-            ),
+            }))
+            .filter((category) => category.children.length),
         );
       }
 
@@ -113,28 +115,17 @@ function Home() {
     };
   }, []);
 
-  const visibleCategories = useMemo(() => {
-    const itemsPerPage = 3;
-    const start = categoryIndex % Math.max(1, categories.length);
-    if (categories.length <= itemsPerPage) return categories;
-    return [
-      categories[start],
-      categories[(start + 1) % categories.length],
-      categories[(start + 2) % categories.length],
-    ];
-  }, [categories, categoryIndex]);
-
-  const handlePrevCategory = () => {
-    setCategoryIndex(
-      (prev) => (prev - 1 + categories.length) % Math.max(1, categories.length),
-    );
-  };
-
-  const handleNextCategory = () => {
-    setCategoryIndex((prev) => (prev + 1) % Math.max(1, categories.length));
-  };
-
   const featuredProducts = products.slice(0, 4);
+
+  const scrollCategoryGroup = (groupKey, direction) => {
+    const scroller = categoryScrollerRefs.current[groupKey];
+    if (!scroller) return;
+
+    scroller.scrollBy({
+      left: direction * scroller.clientWidth,
+      behavior: "smooth",
+    });
+  };
 
   return (
     <div className="space-y-12 pb-8 sm:space-y-16 sm:pb-10 lg:space-y-20 lg:pb-12">
@@ -221,7 +212,7 @@ function Home() {
         ))}
       </section>
 
-      {visibleCategories.length > 0 && categories.length > 0 && (
+      {categoryGroups.length > 0 && (
         <section className="mx-auto max-w-7xl space-y-6">
           <div className="flex flex-col gap-4 border-b border-emerald-100 pb-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
             <div className="space-y-2">
@@ -232,84 +223,116 @@ function Home() {
               Danh muc noi bat
               </h2>
               <p className="text-sm text-emerald-900/55">
-                Chon nhanh 3 nhom san pham dang duoc quan tam.
+                Chon nhanh cac nhom san pham dang duoc quan tam.
               </p>
             </div>
-            {categories.length > 3 && (
-              <div className="flex justify-center gap-2 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={handlePrevCategory}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-white text-lg font-bold text-emerald-900 shadow-sm transition-all hover:border-emerald-600 hover:bg-emerald-50 active:scale-95"
-                  aria-label="Danh muc truoc"
-                >
-                  &larr;
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextCategory}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-emerald-800 text-lg font-bold text-white shadow-sm transition-all hover:bg-emerald-900 active:scale-95"
-                  aria-label="Danh muc tiep theo"
-                >
-                  &rarr;
-                </button>
-              </div>
-            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:gap-6">
-              {visibleCategories.map((cat, idx) => {
-                const categoryIdx = categories.findIndex(
-                  (c) => (c.id || c.slug) === (cat.id || cat.slug),
-                );
-                const fallbackImageUrl = getCategoryFallbackImage(
-                  categoryIdx >= 0 ? categoryIdx : idx,
-                );
-                const imageUrl = cat.bannerUrl || fallbackImageUrl;
+          <div className="space-y-8">
+            {categoryGroups.map((group, groupIndex) => (
+              <section
+                key={group.id || group.slug || group.name}
+                className="space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-emerald-950">
+                    {group.name}
+                  </h3>
+                  <div className="h-px flex-1 bg-emerald-100" />
+                  {group.children.length > 3 && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          scrollCategoryGroup(
+                            group.id || group.slug || group.name,
+                            -1,
+                          )
+                        }
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-white text-sm font-black text-emerald-900 shadow-sm transition-colors hover:border-emerald-600 hover:bg-emerald-50"
+                        aria-label={`Danh muc ${group.name} truoc`}
+                      >
+                        &larr;
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          scrollCategoryGroup(
+                            group.id || group.slug || group.name,
+                            1,
+                          )
+                        }
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-800 text-sm font-black text-white shadow-sm transition-colors hover:bg-emerald-900"
+                        aria-label={`Danh muc ${group.name} tiep theo`}
+                      >
+                        &rarr;
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-                return (
-                  <Link
-                    key={cat.id || cat.slug || cat.name}
-                    to={`/products?category=${cat.slug || cat.id || "all"}`}
-                    className="group relative min-h-72 overflow-hidden rounded-lg border border-emerald-100 bg-emerald-950 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_22px_55px_rgba(20,83,45,0.18)]"
-                  >
-                    <img
-                      src={imageUrl}
-                      alt={cat.name}
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src = fallbackImageUrl;
-                      }}
-                      className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,44,34,0.02)_0%,rgba(2,44,34,0.24)_46%,rgba(2,44,34,0.90)_100%)]" />
-                    <div className="absolute left-4 top-4 z-10">
-                      <span className="inline-flex rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/85 backdrop-blur">
-                        Bo suu tap
-                      </span>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 p-5 text-white sm:p-6">
-                      <div className="space-y-2">
-                        <h3 className="line-clamp-2 text-xl font-black uppercase tracking-tight sm:text-2xl">
-                          {cat.name}
-                        </h3>
-                        <p className="line-clamp-2 text-sm leading-5 text-white/76">
-                          {cat.description || "Kham pha bo suu tap"}
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-white">
-                        Xem san pham
-                        <span
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-emerald-900 transition-transform group-hover:translate-x-1"
-                          aria-hidden="true"
-                        >
-                          &rarr;
-                        </span>
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+                <div
+                  ref={(node) => {
+                    if (node) {
+                      categoryScrollerRefs.current[
+                        group.id || group.slug || group.name
+                      ] = node;
+                    }
+                  }}
+                  className="scrollbar-hidden flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 lg:gap-6"
+                >
+                  {group.children.map((cat, idx) => {
+                    const fallbackImageUrl = getCategoryFallbackImage(
+                      groupIndex * 4 + idx,
+                    );
+                    const imageUrl = cat.bannerUrl || fallbackImageUrl;
+
+                    return (
+                      <Link
+                        key={cat.id || cat.slug || cat.name}
+                        to={`/products?category=${cat.slug || cat.id || "all"}`}
+                        className="group relative min-h-72 w-[82vw] shrink-0 snap-start overflow-hidden rounded-lg border border-emerald-100 bg-emerald-950 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_22px_55px_rgba(20,83,45,0.18)] sm:w-[calc((100%_-_1rem)/2)] lg:w-[calc((100%_-_3rem)/3)]"
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={cat.name}
+                          onError={(event) => {
+                            event.currentTarget.onerror = null;
+                            event.currentTarget.src = fallbackImageUrl;
+                          }}
+                          className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,44,34,0.02)_0%,rgba(2,44,34,0.24)_46%,rgba(2,44,34,0.90)_100%)]" />
+                        <div className="absolute left-4 top-4 z-10">
+                          <span className="inline-flex rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/85 backdrop-blur">
+                            Bo suu tap
+                          </span>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 p-5 text-white sm:p-6">
+                          <div className="space-y-2">
+                            <h3 className="line-clamp-2 text-xl font-black uppercase tracking-tight sm:text-2xl">
+                              {cat.name}
+                            </h3>
+                            <p className="line-clamp-2 text-sm leading-5 text-white/76">
+                              {cat.description || "Kham pha bo suu tap"}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-white">
+                            Xem san pham
+                            <span
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-emerald-900 transition-transform group-hover:translate-x-1"
+                              aria-hidden="true"
+                            >
+                              &rarr;
+                            </span>
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         </section>
       )}

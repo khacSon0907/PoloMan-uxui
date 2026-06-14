@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
-import { categoryApi } from '../features/category'
+import { categoryApi, flattenCategoryTree, normalizeCategoryTree } from '../features/category'
 import {
   favoriteStorage,
   formatCurrency,
@@ -29,7 +29,7 @@ function getCategoryRequestId(categories, selectedCategory) {
   if (selectedCategory === 'all') return 'all'
 
   const selected = normalizeValue(selectedCategory)
-  const matchedCategory = categories.find((category) =>
+  const matchedCategory = flattenCategoryTree(categories).find((category) =>
     [category?.id, category?._id, category?.slug, category?.name].map(normalizeValue).includes(selected),
   )
 
@@ -82,7 +82,7 @@ function Products() {
         if (!isMounted) return
 
         if (Array.isArray(categoryList)) {
-          setCategories(categoryList.filter((category) => category.active !== false))
+          setCategories(normalizeCategoryTree(categoryList))
         }
       })
       .catch(() => {
@@ -138,9 +138,10 @@ function Products() {
   const categoryOptions = useMemo(
     () => [
       { id: 'all', name: 'Tat ca' },
-      ...categories.map((category) => ({
+      ...flattenCategoryTree(categories, { onlyActive: true }).map((category) => ({
         id: getCategoryOptionValue(category),
-        name: category.name,
+        name: category.label,
+        level: category.level,
       })),
     ],
     [categories],

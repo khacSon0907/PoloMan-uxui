@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
+import { categoryApi, normalizeCategoryTree } from '../../features/category'
 import { cartApi, cartStorage, CART_UPDATED_EVENT, getUserId } from '../../features/product'
 import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
 import PromotionTicker from './PromotionTicker'
@@ -19,6 +20,10 @@ function getDisplayName(user) {
 
 function getInitial(user) {
   return getDisplayName(user).trim().charAt(0).toUpperCase() || 'U'
+}
+
+function getCategoryUrl(category) {
+  return `/products?category=${category?.slug || category?.id || 'all'}`
 }
 
 function Icon({ name, className = 'h-5 w-5' }) {
@@ -53,12 +58,33 @@ function Header() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [cartCount, setCartCount] = useState(() => cartStorage.getCount())
+  const [categoryTree, setCategoryTree] = useState([])
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false)
   const user = authSnapshot.user
   const userId = getUserId(user)
   const isAuthInitializing = authSnapshot.isInitializing
   const isAdmin = hasRole(user, 'ADMIN')
   const showChangePassword = canChangePassword(user)
   const isAuthenticated = authSnapshot.isAuthenticated
+  const productMenuGroups = useMemo(
+    () =>
+      categoryTree
+        .filter((category) => category.active !== false)
+        .map((category) => ({
+          ...category,
+          children: (category.children || []).filter((child) => child.active !== false),
+        }))
+        .filter((category) => category.children.length),
+    [categoryTree],
+  )
+  const productMenuImages = useMemo(
+    () =>
+      productMenuGroups
+        .flatMap((category) => category.children)
+        .filter((category) => category.bannerUrl)
+        .slice(0, 2),
+    [productMenuGroups],
+  )
 
   const isActive = (path) => location.pathname === path
   const closeMenus = () => {
@@ -81,6 +107,27 @@ function Header() {
     }`
 
   useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    categoryApi
+      .list()
+      .then((categories) => {
+        if (isMounted) {
+          setCategoryTree(normalizeCategoryTree(categories))
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setCategoryTree([])
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     const syncCartCount = async () => {
@@ -132,6 +179,33 @@ function Header() {
     }
   }, [mobileMenuOpen])
 
+  useEffect(() => {
+    let lastScrollY = window.scrollY
+    let ticking = false
+
+    const updateHeaderVisibility = () => {
+      const currentScrollY = window.scrollY
+      const isScrollingDown = currentScrollY > lastScrollY
+
+      setIsHeaderHidden(isScrollingDown && currentScrollY > 120 && !mobileMenuOpen && !accountMenuOpen)
+      lastScrollY = currentScrollY
+      ticking = false
+    }
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateHeaderVisibility)
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [accountMenuOpen, mobileMenuOpen])
+
   const handleLogout = async () => {
     setIsLoggingOut(true)
 
@@ -149,7 +223,11 @@ function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/94 backdrop-blur-md">
+    <header
+      className={`sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/94 backdrop-blur-md transition-transform duration-300 ${
+        isHeaderHidden ? '-translate-y-full' : 'translate-y-0'
+      }`}
+    >
       <PromotionTicker />
       <div className="mx-auto h-16 max-w-[1500px] px-4 sm:h-20 sm:px-6 lg:h-24 lg:px-10">
         <div className="relative flex h-full items-center justify-between">
@@ -164,11 +242,74 @@ function Header() {
             </button>
 
             <nav className="hidden items-center gap-4 whitespace-nowrap text-[12px] font-semibold uppercase tracking-[0.12em] text-emerald-900/65 md:flex xl:gap-7 xl:text-[13px] xl:tracking-[0.18em]">
-              {navItems.map((item) => (
-                <Link key={item.to} to={item.to} className={navClass(item.to)}>
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.map((item) =>
+                item.to === '/products' ? (
+                  <div key={item.to} className="group">
+                    <Link to={item.to} className={navClass(item.to)}>
+                      {item.label}
+                    </Link>
+
+                    {productMenuGroups.length > 0 && (
+                      <div className="invisible absolute left-1/2 top-full z-40 w-screen -translate-x-1/2 translate-y-3 border-t border-emerald-100 bg-white opacity-0 shadow-[0_28px_70px_rgba(15,23,42,0.10)] transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="mx-auto grid max-w-[1500px] gap-8 px-10 py-10 lg:grid-cols-[minmax(0,1fr)_520px] xl:gap-12">
+                          <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+                            {productMenuGroups.map((category) => (
+                              <div key={category.id || category.slug || category.name} className="space-y-3">
+                                <Link
+                                  to={getCategoryUrl(category)}
+                                  className="block text-sm font-bold uppercase tracking-[0.18em] text-emerald-950 hover:text-emerald-700"
+                                >
+                                  {category.name}
+                                </Link>
+                                <div className="space-y-2">
+                                  {category.children.map((child) => (
+                                    <Link
+                                      key={child.id || child.slug || child.name}
+                                      to={getCategoryUrl(child)}
+                                      className="block text-sm font-semibold normal-case tracking-normal text-emerald-900/70 hover:text-emerald-950"
+                                    >
+                                      {child.name}
+                                    </Link>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid gap-5 sm:grid-cols-2">
+                            {productMenuImages.map((category) => (
+                              <Link
+                                key={category.id || category.slug || category.name}
+                                to={getCategoryUrl(category)}
+                                className="group/card relative min-h-72 overflow-hidden rounded-lg bg-emerald-950"
+                              >
+                                <img
+                                  src={category.bannerUrl}
+                                  alt={category.name}
+                                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,44,34,0.02)_0%,rgba(2,44,34,0.18)_44%,rgba(2,44,34,0.82)_100%)]" />
+                                <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                                  <p className="text-lg font-black uppercase tracking-tight">
+                                    {category.name}
+                                  </p>
+                                  <p className="mt-2 line-clamp-2 text-xs font-medium normal-case tracking-normal text-white/75">
+                                    {category.description || 'Khám phá sản phẩm'}
+                                  </p>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Link key={item.to} to={item.to} className={navClass(item.to)}>
+                    {item.label}
+                  </Link>
+                ),
+              )}
             </nav>
           </div>
 

@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { categoryApi } from "../../features/category";
+import {
+  categoryApi,
+  flattenCategoryTree,
+  normalizeCategoryTree,
+} from "../../features/category";
 import {
   getImageUrl,
   getProductColorCode,
@@ -133,6 +137,10 @@ function AdminProductCreate() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const categoryOptions = useMemo(
+    () => flattenCategoryTree(categories, { onlyActive: true }),
+    [categories],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -141,7 +149,7 @@ function AdminProductCreate() {
       .list()
       .then((categoryList) => {
         if (isMounted) {
-          setCategories(Array.isArray(categoryList) ? categoryList : []);
+          setCategories(normalizeCategoryTree(categoryList));
         }
       })
       .catch((error) => {
@@ -637,12 +645,12 @@ function AdminProductCreate() {
                   <option value="">
                     {isLoadingCategories ? "Dang tai..." : "Chon danh muc"}
                   </option>
-                  {categories.map((category) => (
+                  {categoryOptions.map((category) => (
                     <option
                       key={category.id || category.slug}
                       value={category.id}
                     >
-                      {category.name}
+                      {category.label}
                     </option>
                   ))}
                 </select>

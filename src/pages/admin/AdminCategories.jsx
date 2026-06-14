@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { categoryApi } from "../../features/category";
-import { getApiMessage } from "../../shared/api";
+import {
+  categoryApi,
+  flattenCategoryTree,
+  getCategoryBusinessMessage,
+  normalizeCategoryTree,
+} from "../../features/category";
 import { uploadImageToCloudinary } from "../../shared/services/cloudinaryUpload";
 
 const initialForm = {
@@ -9,16 +13,9 @@ const initialForm = {
   description: "",
   bannerUrl: "",
   active: true,
+  parentId: "",
+  sortOrder: "0",
 };
-
-function normalizeCategory(category) {
-  if (!category) return null;
-
-  return {
-    ...category,
-    active: category.active !== false,
-  };
-}
 
 function AdminCategories() {
   const fileInputRef = useRef(null);
@@ -34,13 +31,36 @@ function AdminCategories() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const isEditing = Boolean(editingCategory?.id);
-
-  const activeCount = useMemo(
-    () => categories.filter((category) => category.active !== false).length,
+  const flattenedCategories = useMemo(
+    () => flattenCategoryTree(categories),
     [categories],
   );
+  const categoryNameById = useMemo(
+    () =>
+      new Map(
+        flattenedCategories
+          .filter((category) => category.id)
+          .map((category) => [String(category.id), category.name]),
+      ),
+    [flattenedCategories],
+  );
+  const parentOptions = useMemo(
+    () =>
+      flattenCategoryTree(categories, {
+        excludeId: editingCategory?.id || "",
+        excludeDescendantsOf: editingCategory?.id || "",
+      }),
+    [categories, editingCategory?.id],
+  );
 
-  const inactiveCount = Math.max(categories.length - activeCount, 0);
+  const activeCount = useMemo(
+    () =>
+      flattenedCategories.filter((category) => category.active !== false)
+        .length,
+    [flattenedCategories],
+  );
+
+  const inactiveCount = Math.max(flattenedCategories.length - activeCount, 0);
 
   const loadCategories = async () => {
     setIsLoading(true);
@@ -48,12 +68,10 @@ function AdminCategories() {
 
     try {
       const list = await categoryApi.list();
-      setCategories(
-        Array.isArray(list) ? list.map(normalizeCategory).filter(Boolean) : [],
-      );
+      setCategories(normalizeCategoryTree(list));
     } catch (error) {
       setErrorMessage(
-        getApiMessage(error, "Khong the tai danh sach danh muc."),
+        getCategoryBusinessMessage(error, "Khong the tai danh sach danh muc."),
       );
     } finally {
       setIsLoading(false);
@@ -67,17 +85,16 @@ function AdminCategories() {
       .list()
       .then((list) => {
         if (isMounted) {
-          setCategories(
-            Array.isArray(list)
-              ? list.map(normalizeCategory).filter(Boolean)
-              : [],
-          );
+          setCategories(normalizeCategoryTree(list));
         }
       })
       .catch((error) => {
         if (isMounted) {
           setErrorMessage(
-            getApiMessage(error, "Khong the tai danh sach danh muc."),
+            getCategoryBusinessMessage(
+              error,
+              "Khong the tai danh sach danh muc.",
+            ),
           );
         }
       })
@@ -154,6 +171,8 @@ function AdminCategories() {
       description: category.description || "",
       bannerUrl: category.bannerUrl || "",
       active: category.active !== false,
+      parentId: category.parentId || "",
+      sortOrder: String(category.sortOrder ?? 0),
     });
     resetBannerPreview();
     setErrorMessage("");
@@ -177,6 +196,8 @@ function AdminCategories() {
       description: form.description.trim(),
       bannerUrl,
       active: form.active,
+      parentId: form.parentId || null,
+      sortOrder: Number(form.sortOrder || 0),
     };
   };
 
@@ -196,36 +217,18 @@ function AdminCategories() {
       const payload = await buildPayload();
 
       if (isEditing) {
-        const updatedCategory = await categoryApi.update(
-          editingCategory.id,
-          payload,
-        );
-        const normalizedCategory = normalizeCategory(updatedCategory) || {
-          ...editingCategory,
-          ...payload,
-        };
-
-        setCategories((current) =>
-          current.map((category) =>
-            category.id === editingCategory.id ? normalizedCategory : category,
-          ),
-        );
+        await categoryApi.update(editingCategory.id, payload);
         resetForm();
         setSuccessMessage("Cap nhat danh muc thanh cong.");
       } else {
-        const createdCategory = await categoryApi.create(payload);
-        setCategories((current) =>
-          [
-            normalizeCategory(createdCategory),
-            ...current.filter(Boolean),
-          ].filter(Boolean),
-        );
+        await categoryApi.create(payload);
         setForm(initialForm);
         setSuccessMessage("Tao danh muc thanh cong.");
       }
+      await loadCategories();
     } catch (error) {
       setErrorMessage(
-        getApiMessage(
+        getCategoryBusinessMessage(
           error,
           isEditing ? "Cap nhat danh muc that bai." : "Tao danh muc that bai.",
         ),
@@ -248,9 +251,7 @@ function AdminCategories() {
 
     try {
       await categoryApi.delete(categoryId);
-      setCategories((current) =>
-        current.filter((item) => item.id !== categoryId),
-      );
+      await loadCategories();
 
       if (editingCategory?.id === categoryId) {
         resetForm();
@@ -258,7 +259,9 @@ function AdminCategories() {
 
       setSuccessMessage("Xoa danh muc thanh cong.");
     } catch (error) {
-      setErrorMessage(getApiMessage(error, "Xoa danh muc that bai."));
+      setErrorMessage(
+        getCategoryBusinessMessage(error, "Xoa danh muc that bai."),
+      );
     } finally {
       setDeletingId("");
     }
@@ -283,7 +286,9 @@ function AdminCategories() {
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-md border border-white/15 bg-white/10 p-4">
               <p className="text-xs text-white/60">Tong</p>
-              <p className="mt-2 text-3xl font-black">{categories.length}</p>
+              <p className="mt-2 text-3xl font-black">
+                {flattenedCategories.length}
+              </p>
             </div>
             <div className="rounded-md border border-white/15 bg-white/10 p-4">
               <p className="text-xs text-white/60">Hien</p>
@@ -301,7 +306,7 @@ function AdminCategories() {
           className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px]"
         >
           <div className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-[1fr_170px]">
+            <div className="grid gap-4 md:grid-cols-[1fr_220px_150px_170px]">
               <div>
                 <label
                   htmlFor="category-name"
@@ -314,6 +319,48 @@ function AdminCategories() {
                   value={form.name}
                   onChange={handleChange("name")}
                   placeholder="Ao polo, Ao so mi, Phu kien..."
+                  className="mt-2 h-11 w-full rounded-md border border-neutral-200 px-3 text-sm text-neutral-950 outline-none transition-colors focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="category-parent"
+                  className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500"
+                >
+                  Danh muc cha
+                </label>
+                <select
+                  id="category-parent"
+                  value={form.parentId}
+                  onChange={handleChange("parentId")}
+                  className="mt-2 h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition-colors focus:border-emerald-600"
+                >
+                  <option value="">Danh muc goc</option>
+                  {parentOptions.map((category) => (
+                    <option
+                      key={category.id || category.slug || category.name}
+                      value={category.id}
+                    >
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="category-sort-order"
+                  className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500"
+                >
+                  Thu tu
+                </label>
+                <input
+                  id="category-sort-order"
+                  type="number"
+                  value={form.sortOrder}
+                  onChange={handleChange("sortOrder")}
+                  placeholder="0"
                   className="mt-2 h-11 w-full rounded-md border border-neutral-200 px-3 text-sm text-neutral-950 outline-none transition-colors focus:border-emerald-600"
                 />
               </div>
@@ -460,20 +507,21 @@ function AdminCategories() {
           <div className="flex min-h-48 items-center justify-center">
             <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-600" />
           </div>
-        ) : categories.length ? (
+        ) : flattenedCategories.length ? (
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] w-full text-left">
+            <table className="min-w-[940px] w-full text-left">
               <thead className="border-b border-neutral-100 bg-neutral-50 text-xs font-bold uppercase tracking-[0.14em] text-neutral-500">
                 <tr>
                   <th className="px-5 py-3">Danh muc</th>
-                  <th className="px-5 py-3">Anh</th>
                   <th className="px-5 py-3">Slug</th>
+                  <th className="px-5 py-3">Parent</th>
+                  <th className="px-5 py-3">SortOrder</th>
                   <th className="px-5 py-3">Trang thai</th>
                   <th className="px-5 py-3 text-right">Thao tac</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {categories.map((category) => (
+                {flattenedCategories.map((category) => (
                   <tr
                     key={category.id || category.slug || category.name}
                     className={
@@ -483,30 +531,43 @@ function AdminCategories() {
                     }
                   >
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-neutral-950">
-                        {category.name}
-                      </div>
-                      <div className="mt-1 max-w-xl text-sm text-neutral-500">
-                        {category.description || "Chua co mo ta"}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="h-16 w-28 overflow-hidden rounded-md border border-neutral-200 bg-neutral-100">
-                        {category.bannerUrl ? (
-                          <img
-                            src={category.bannerUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-xs text-neutral-400">
-                            No img
+                      <div
+                        className="flex items-start gap-3"
+                        style={{ paddingLeft: `${category.level * 24}px` }}
+                      >
+                        <div className="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-neutral-100">
+                          {category.bannerUrl ? (
+                            <img
+                              src={category.bannerUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-xs text-neutral-400">
+                              No img
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-neutral-950">
+                            {category.name}
                           </div>
-                        )}
+                          <div className="mt-1 max-w-xl text-sm text-neutral-500">
+                            {category.description || "Chua co mo ta"}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-4 text-sm font-semibold text-neutral-500">
                       {category.slug ? `/${category.slug}` : "-"}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-neutral-500">
+                      {category.parentId
+                        ? categoryNameById.get(String(category.parentId)) || "-"
+                        : "Danh muc goc"}
+                    </td>
+                    <td className="px-5 py-4 text-sm font-semibold text-neutral-700">
+                      {category.sortOrder ?? 0}
                     </td>
                     <td className="px-5 py-4">
                       <span

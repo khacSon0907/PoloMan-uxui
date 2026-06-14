@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import BannerFallback from "../assets/Banner.png";
 import { bannerApi } from "../features/banner";
-import { categoryApi } from "../features/category";
+import { categoryApi, normalizeCategoryTree } from "../features/category";
 import {
   formatCurrency,
   getProductId,
@@ -64,8 +64,15 @@ function Home() {
         Array.isArray(categoryResult.value) &&
         categoryResult.value.length
       ) {
+        const categoryTree = normalizeCategoryTree(categoryResult.value);
         setCategories(
-          categoryResult.value.filter((category) => category.active !== false),
+          categoryTree
+            .filter((category) => category.active !== false)
+            .flatMap((category) =>
+              (category.children || []).filter(
+                (child) => child.active !== false,
+              ),
+            ),
         );
       }
 

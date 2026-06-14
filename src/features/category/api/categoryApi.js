@@ -12,7 +12,7 @@ export const categoryApi = {
   },
 
   async update(id, payload) {
-    const response = await http.put(`/categories/${id}`, { ...payload, id })
+    const response = await http.put(`/categories/${id}`, payload)
     return getApiData(response)
   },
 

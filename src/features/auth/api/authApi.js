@@ -106,6 +106,10 @@ export const authApi = {
     return publicHttp.post('/auth/reset-password', payload)
   },
 
+  exchangeOAuth2Code(code) {
+    return publicHttp.post('/auth/oauth2/exchange', { code }, { withCredentials: true })
+  },
+
   changePassword(payload) {
     return http.post('/auth/change-password', payload)
   },

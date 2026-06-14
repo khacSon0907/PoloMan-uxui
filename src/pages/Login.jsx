@@ -1,11 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../features/auth'
 import { getApiMessage, hasRole, tokenStorage } from '../shared/api'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+const PRODUCTION_BACKEND_URL = 'https://x10-clothing-api-1.onrender.com'
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ||
+  PRODUCTION_BACKEND_URL
+const GOOGLE_LOGIN_ERROR_MESSAGE = 'Đăng nhập Google không thành công. Vui lòng thử lại.'
+
+function getOAuth2ErrorMessage(search) {
+  return new URLSearchParams(search).get('error') === 'oauth2'
+    ? GOOGLE_LOGIN_ERROR_MESSAGE
+    : ''
+}
 
 function validateLoginForm({ email, password }) {
   if (!email) return 'Email không được để trống'
@@ -21,8 +32,16 @@ function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState(location.state?.errorMessage || '')
-  const [successMessage, setSuccessMessage] = useState(location.state?.successMessage || '')
+  const [errorMessage, setErrorMessage] = useState(() => location.state?.errorMessage || '')
+  const [successMessage, setSuccessMessage] = useState(() => location.state?.successMessage || '')
+  const oauth2ErrorMessage = getOAuth2ErrorMessage(location.search)
+  const visibleErrorMessage = oauth2ErrorMessage || errorMessage
+
+  useEffect(() => {
+    if (location.state?.errorMessage || location.state?.successMessage) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    }
+  }, [location.key, location.pathname, location.search, location.state, navigate])
 
   const redirectAfterLogin = () => {
     const loggedInUser = tokenStorage.getUser()
@@ -35,7 +54,9 @@ function Login() {
   }
 
   const handleGoogleLogin = () => {
-    window.location.href = `${BACKEND_URL}/oauth2/authorization/google`
+    setErrorMessage('')
+    setSuccessMessage('')
+    window.location.assign(`${API_BASE_URL}/oauth2/authorization/google`)
   }
 
   const handleSubmit = async (e) => {
@@ -124,15 +145,15 @@ function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {successMessage && (
+          {successMessage && !oauth2ErrorMessage && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               {successMessage}
             </div>
           )}
 
-          {errorMessage && (
+          {visibleErrorMessage && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {errorMessage}
+              {visibleErrorMessage}
             </div>
           )}
 

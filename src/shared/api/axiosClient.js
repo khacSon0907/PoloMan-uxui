@@ -15,7 +15,7 @@ export const publicHttp = axios.create({
 });
 export const http = axios.create({
   ...baseConfig,
-  withCredentials: false,
+  withCredentials: true,
 });
 
 let isRefreshing = false;
@@ -176,7 +176,9 @@ http.interceptors.response.use(
 
         tokenStorage.clearAccessToken();
 
-        window.location.href = "/login";
+        if (window.location.pathname !== "/oauth2/success") {
+          window.location.href = "/login";
+        }
 
         return Promise.reject(refreshError);
       } finally {

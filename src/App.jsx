@@ -30,6 +30,10 @@ function bootstrapAuth() {
   return authBootstrapPromise
 }
 
+function isOAuth2SuccessRoute() {
+  return window.location.pathname === '/oauth2/success'
+}
+
 function AppSplashScreen() {
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white text-black">
@@ -42,10 +46,17 @@ function AppSplashScreen() {
 }
 
 function App() {
-  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const [isBootstrapping, setIsBootstrapping] = useState(() => !isOAuth2SuccessRoute())
 
   useEffect(() => {
     let isMounted = true
+
+    if (isOAuth2SuccessRoute()) {
+      tokenStorage.setInitializing(false)
+      return () => {
+        isMounted = false
+      }
+    }
 
     bootstrapAuth().finally(() => {
       if (!isMounted) return

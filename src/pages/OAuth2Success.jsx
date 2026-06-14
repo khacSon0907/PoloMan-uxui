@@ -12,20 +12,51 @@ function OAuth2Success() {
 
     async function completeOAuthLogin() {
       try {
-        await authApi.refreshToken()
+        const code = new URLSearchParams(window.location.search).get('code')
+
+        console.log('[OAuth2Success] url:', window.location.href)
+        console.log('[OAuth2Success] code exists:', Boolean(code))
+
+        if (!code) {
+          throw new Error('Missing OAuth2 code')
+        }
+
+        console.log('[OAuth2Success] exchange started')
+        const response = await authApi.exchangeOAuth2Code(code)
+        console.log('[OAuth2Success] exchange response:', response)
+
+        const accessToken =
+          response?.data?.accessToken ||
+          response?.data?.data?.accessToken ||
+          response?.accessToken
+
+        if (!accessToken) {
+          throw new Error('Missing access token from exchange response')
+        }
+
+        tokenStorage.setAccessToken(accessToken)
+
+        console.log('[OAuth2Success] getMe started')
         await authApi.getMe()
+        console.log('[OAuth2Success] getMe success')
 
         if (isMounted) {
           navigate('/', { replace: true })
         }
-      } catch {
+      } catch (error) {
+        console.error('[OAuth2Success] failed:', {
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data,
+        })
+
         tokenStorage.clearAccessToken()
 
         if (isMounted) {
           navigate('/login', {
             replace: true,
             state: {
-              errorMessage: 'Đăng nhập Google thất bại. Vui lòng thử lại.',
+              errorMessage: 'Đăng nhập Google không thành công. Vui lòng thử lại.',
             },
           })
         }

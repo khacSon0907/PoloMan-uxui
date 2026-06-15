@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 
-import { orderApi } from '../features/order'
+import {
+  getOrderErrorCode,
+  getOrderStatusBadgeClass,
+  getOrderStatusLabel,
+  isPendingOrder,
+  orderApi,
+} from '../features/order'
 import { formatCurrency, getUserId } from '../features/product'
 import { getApiMessage, tokenStorage } from '../shared/api'
 
@@ -18,20 +24,6 @@ function formatDate(value) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
-}
-
-function getStatusLabel(status) {
-  const normalizedStatus = String(status || '').toUpperCase()
-  const labels = {
-    PENDING: 'Cho xac nhan',
-    CONFIRMED: 'Da xac nhan',
-    SHIPPING: 'Dang giao',
-    DELIVERED: 'Da giao',
-    COMPLETED: 'Hoan thanh',
-    CANCELLED: 'Da huy',
-  }
-
-  return labels[normalizedStatus] || status || 'Cho xac nhan'
 }
 
 function getPaymentLabel(method) {
@@ -65,6 +57,7 @@ function AccountOrders() {
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [orders, setOrders] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [cancellingOrderId, setCancellingOrderId] = useState('')
   const [message, setMessage] = useState(location.state?.message || '')
   const [errorMessage, setErrorMessage] = useState('')
   const userId = getUserId(authSnapshot.user)
@@ -117,6 +110,53 @@ function AccountOrders() {
     }
   }, [authSnapshot.isAuthenticated, authSnapshot.isInitializing, userId])
 
+  const loadOrders = async () => {
+    if (!userId) return
+
+    setIsLoading(true)
+    setErrorMessage('')
+
+    try {
+      const list = await orderApi.getOrdersByUserId(userId)
+      setOrders(
+        [...list].sort(
+          (first, second) =>
+            new Date(second.createdAt || 0).getTime() - new Date(first.createdAt || 0).getTime(),
+        ),
+      )
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the tai lich su don hang.'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCancelOrder = async (order) => {
+    const orderId = order?.id || order?.orderId || order?.orderCode
+    if (!orderId || !isPendingOrder(order.status)) return
+
+    const cancelReason = window.prompt('Nhap ly do huy don hang:', '')
+    if (cancelReason === null) return
+
+    setCancellingOrderId(orderId)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      await orderApi.cancelOrder(orderId, cancelReason)
+      setMessage(`Da huy don hang #${order.orderCode || orderId}.`)
+      await loadOrders()
+    } catch (error) {
+      setErrorMessage(
+        getOrderErrorCode(error) === 'ORDER.INVALID_STATUS'
+          ? 'Chỉ có thể hủy đơn hàng khi đơn đang chờ xác nhận.'
+          : getApiMessage(error, 'Khong the huy don hang.'),
+      )
+    } finally {
+      setCancellingOrderId('')
+    }
+  }
+
   if (!authSnapshot.isAuthenticated && !authSnapshot.isInitializing) {
     return <Navigate to="/login" replace />
   }
@@ -159,31 +199,47 @@ function AccountOrders() {
               <div className="h-9 w-9 animate-spin rounded-full border-2 border-emerald-100 border-t-emerald-700" />
             </div>
           ) : orders.length ? (
-            orders.map((order) => (
-              <div
+            orders.map((order) => {
+              const orderId = order.id || order.orderId || order.orderCode
+              const isCancelling = cancellingOrderId === orderId
+
+              return (
+              <article
                 key={order.id || order.orderCode}
-                className="grid gap-3 py-5 sm:grid-cols-[1fr_auto] sm:gap-4 lg:grid-cols-[160px_1fr_140px_120px_150px_100px] lg:items-center"
+                className="grid gap-4 py-5 sm:grid-cols-[1fr_auto] sm:gap-5 lg:grid-cols-[170px_1fr_150px_130px_150px_190px] lg:items-center"
               >
                 <div>
                   <p className="text-sm font-semibold text-emerald-800">#{order.orderCode || order.id}</p>
                   <p className="mt-1 text-xs text-emerald-500">{formatDate(order.createdAt)}</p>
                 </div>
                 <p className="text-sm text-emerald-600 sm:col-span-2 lg:col-span-1">{getOrderItemsText(order)}</p>
-                <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {getStatusLabel(order.status)}
+                <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold ${getOrderStatusBadgeClass(order.status)}`}>
+                  {getOrderStatusLabel(order.status)}
                 </span>
                 <span className="text-sm font-semibold text-emerald-700">{getPaymentLabel(order.paymentMethod)}</span>
                 <p className="text-sm font-semibold text-emerald-800 sm:text-right">
                   {formatCurrency(order.totalAmount)}
                 </p>
-                <Link
-                  to={`/account/orders/${order.id || order.orderCode}`}
-                  className="h-9 w-fit rounded-md border border-emerald-200 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700 hover:border-emerald-500 hover:text-emerald-900 lg:justify-self-end"
-                >
-                  Chi tiet
-                </Link>
-              </div>
-            ))
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  {isPendingOrder(order.status) && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOrder(order)}
+                      disabled={isCancelling}
+                      className="h-9 rounded-md border border-red-200 px-3 text-xs font-bold uppercase tracking-[0.12em] text-red-600 hover:border-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isCancelling ? 'Dang huy' : 'Huy don'}
+                    </button>
+                  )}
+                  <Link
+                    to={`/account/orders/${order.id || order.orderCode}`}
+                    className="h-9 w-fit rounded-md border border-emerald-200 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700 hover:border-emerald-500 hover:text-emerald-900"
+                  >
+                    Chi tiet
+                  </Link>
+                </div>
+              </article>
+            )})
           ) : (
             <div className="py-12 text-center">
               <p className="text-base font-semibold text-emerald-800">Ban chua co don hang nao.</p>

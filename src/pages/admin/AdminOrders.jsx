@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { orderApi } from "../../features/order";
+import {
+  getOrderStatusBadgeClass,
+  getOrderStatusLabel,
+  orderApi,
+} from "../../features/order";
 import { formatCurrency } from "../../features/product";
 import { getApiMessage } from "../../shared/api";
 
@@ -23,50 +28,8 @@ function getOrderId(order) {
   return order?.id || order?._id || order?.orderId || order?.orderCode;
 }
 
-function getStatusLabel(status) {
-  const normalizedStatus = String(status || "").toUpperCase();
-  const labels = {
-    PENDING: "Cho xac nhan",
-    CONFIRMED: "Da xac nhan",
-    SHIPPING: "Dang giao",
-    DELIVERED: "Da giao",
-    COMPLETED: "Hoan thanh",
-    CANCELLED: "Da huy",
-  };
-
-  return labels[normalizedStatus] || status || "Cho xac nhan";
-}
-
-function getPaymentLabel(method) {
-  const normalizedMethod = String(method || "").toUpperCase();
-  const labels = {
-    COD: "COD",
-    MOMO: "Momo",
-    PAYOS: "PayOS",
-    BANK_TRANSFER: "Ngan hang",
-  };
-
-  return labels[normalizedMethod] || method || "COD";
-}
-
-function getCustomerText(order) {
-  return (
-    order?.receiverName ||
-    order?.customerName ||
-    order?.user?.fullName ||
-    order?.user?.username ||
-    order?.user?.email ||
-    order?.userId ||
-    "-"
-  );
-}
-
-function getItemsCount(order) {
-  const items = Array.isArray(order?.items) ? order.items : [];
-  return items.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
-}
-
 function AdminOrders() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -187,68 +150,45 @@ function AdminOrders() {
           </div>
         ) : orders.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-left">
+            <table className="w-full min-w-[720px] text-left">
               <thead className="border-b border-neutral-100 bg-neutral-50 text-xs font-bold uppercase tracking-[0.14em] text-neutral-500">
                 <tr>
                   <th className="px-5 py-3">Don hang</th>
-                  <th className="px-5 py-3">Khach hang</th>
-                  <th className="px-5 py-3">Lien he</th>
-                  <th className="px-5 py-3">San pham</th>
-                  <th className="px-5 py-3">Thanh toan</th>
                   <th className="px-5 py-3">Trang thai</th>
                   <th className="px-5 py-3 text-right">Tong tien</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {orders.map((order, index) => {
+                  const orderId = getOrderId(order);
                   const status = String(order?.status || "PENDING").toUpperCase();
 
                   return (
                     <tr
                       key={getOrderId(order) || index}
-                      className="bg-white transition-colors hover:bg-emerald-50/45"
+                      onClick={() => navigate(`/admin/orders/${orderId}`)}
+                      className="cursor-pointer bg-white transition-colors hover:bg-emerald-50/45"
                     >
                       <td className="px-5 py-4">
-                        <div className="font-semibold text-neutral-950">
-                          #{order?.orderCode || getOrderId(order) || "-"}
-                        </div>
-                        <div className="mt-1 text-sm text-neutral-500">
-                          {formatDate(order?.createdAt)}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-neutral-950">
-                          {getCustomerText(order)}
-                        </div>
-                        <div className="mt-1 max-w-[260px] truncate text-sm text-neutral-500">
-                          {order?.receiverAddress || "-"}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-neutral-500">
-                        {order?.receiverPhone || order?.user?.phoneNumber || "-"}
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-neutral-950">
-                        {getItemsCount(order)} san pham
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-sm font-semibold text-neutral-950">
-                          {getPaymentLabel(order?.paymentMethod)}
-                        </div>
-                        <div className="mt-1 text-xs font-semibold text-neutral-500">
-                          {order?.paymentStatus || "UNPAID"}
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-sm font-black text-emerald-700">
+                            →
+                          </span>
+                          <div>
+                            <div className="font-semibold text-neutral-950">
+                              #{order?.orderCode || getOrderId(order) || "-"}
+                            </div>
+                            <div className="mt-1 text-sm text-neutral-500">
+                              {formatDate(order?.createdAt)}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${
-                            status === "CANCELLED"
-                              ? "border-red-200 bg-red-50 text-red-600"
-                              : status === "PENDING"
-                                ? "border-amber-200 bg-amber-50 text-amber-700"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          }`}
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${getOrderStatusBadgeClass(status)}`}
                         >
-                          {getStatusLabel(order?.status)}
+                          {getOrderStatusLabel(order?.status)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right text-sm font-black text-neutral-950">

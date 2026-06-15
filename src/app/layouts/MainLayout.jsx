@@ -1,7 +1,14 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import Header from '../../components/ui/Header'
 
 function MainLayout({ children }) {
+  const { pathname, search } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pathname, search])
+
   return (
     <div className="flex flex-col min-h-screen bg-[#fbfdf8] text-emerald-950 font-sans antialiased">
       <Header />

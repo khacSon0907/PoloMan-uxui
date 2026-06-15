@@ -41,4 +41,14 @@ export const orderApi = {
     const response = await http.get(`/orders/${orderId}`)
     return unwrapApiResponse(response)
   },
+
+  async confirmOrder(orderId) {
+    const response = await http.put(`/orders/${orderId}/confirm`)
+    return unwrapApiResponse(response)
+  },
+
+  async cancelOrder(orderId, cancelReason = '') {
+    const response = await http.put(`/orders/${orderId}/cancel`, { cancelReason })
+    return unwrapApiResponse(response)
+  },
 }

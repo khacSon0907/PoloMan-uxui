@@ -8,6 +8,7 @@ import AdminCategories from "../../pages/admin/AdminCategories";
 import AdminBanners from "../../pages/admin/AdminBanners";
 import AdminDashboard from "../../pages/admin/AdminDashboard";
 import AdminOrders from "../../pages/admin/AdminOrders";
+import AdminOrderDetail from "../../pages/admin/AdminOrderDetail";
 import AdminPromotionBanners from "../../pages/admin/AdminPromotionBanners";
 import AdminProductCreate from "../../pages/admin/AdminProductCreate";
 import AdminProductDetail from "../../pages/admin/AdminProductDetail";
@@ -147,6 +148,10 @@ export const router = createBrowserRouter([
           {
             path: "orders",
             element: <AdminOrders />,
+          },
+          {
+            path: "orders/:orderId",
+            element: <AdminOrderDetail />,
           },
           {
             path: "users",

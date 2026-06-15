@@ -21,6 +21,7 @@ import CheckoutPayment from "../../pages/CheckoutPayment";
 import Favorites from "../../pages/Favorites";
 import ProductDetail from "../../pages/ProductDetail";
 import Products from "../../pages/Products";
+import SizeGuide from "../../pages/SizeGuide";
 import Login from "../../pages/Login";
 import Register from "../../pages/Register";
 import VerifyOtp from "../../pages/VerifyOtp";
@@ -95,6 +96,10 @@ export const router = createBrowserRouter([
       {
         path: "about",
         element: <About />,
+      },
+      {
+        path: "size-guide",
+        element: <SizeGuide />,
       },
     ],
   },

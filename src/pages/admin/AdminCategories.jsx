@@ -533,18 +533,23 @@ function AdminCategories() {
         </form>
       </section>
 
-      <section className="rounded-lg border border-neutral-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <h2 className="text-lg font-semibold text-neutral-950">
-            Danh sach danh muc
-          </h2>
+      <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm shadow-emerald-950/5">
+        <div className="flex flex-col gap-3 border-b border-neutral-200 bg-gradient-to-r from-white via-emerald-50/55 to-white px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+              Quan ly hien thi
+            </p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-neutral-950">
+              Cay danh muc
+            </h2>
+          </div>
           <button
             type="button"
             onClick={loadCategories}
             disabled={isLoading}
-            className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-600 hover:border-emerald-600 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="w-full rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-700 shadow-sm hover:border-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
-            Tai lai
+            Lam moi
           </button>
         </div>
 
@@ -554,33 +559,54 @@ function AdminCategories() {
           </div>
         ) : categoryRows.length ? (
           <div className="overflow-x-auto">
-            <table className="min-w-[940px] w-full text-left">
-              <thead className="border-b border-neutral-100 bg-neutral-50 text-xs font-bold uppercase tracking-[0.14em] text-neutral-500">
+            <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left">
+              <thead className="bg-neutral-50 text-xs font-black uppercase tracking-[0.14em] text-neutral-500">
                 <tr>
-                  <th className="px-5 py-3">Danh muc</th>
-                  <th className="px-5 py-3">Slug</th>
-                  <th className="px-5 py-3">Parent</th>
-                  <th className="px-5 py-3">SortOrder</th>
-                  <th className="px-5 py-3">Trang thai</th>
-                  <th className="px-5 py-3 text-right">Thao tac</th>
+                  <th className="px-6 py-4">Danh muc</th>
+                  <th className="px-5 py-4">Duong dan</th>
+                  <th className="px-5 py-4">Nhom cha</th>
+                  <th className="px-5 py-4">Thu tu</th>
+                  <th className="px-5 py-4">Hien thi</th>
+                  <th className="px-6 py-4 text-right">Thao tac</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody className="bg-white">
                 {categoryRows.map((category) => (
                   <tr
                     key={category.id || category.slug || category.name}
                     className={
                       editingCategory?.id === category.id
-                        ? "bg-neutral-50"
-                        : "bg-white"
+                        ? "bg-emerald-50/60"
+                        : "bg-white hover:bg-neutral-50/70"
                     }
                   >
-                    <td className="px-5 py-4">
+                    <td className="border-t border-neutral-100 px-6 py-4">
                       <div
-                        className="flex items-start gap-3"
-                        style={{ paddingLeft: `${category.level * 24}px` }}
+                        className="flex items-center gap-4"
+                        style={{ paddingLeft: `${category.level * 28}px` }}
                       >
-                        <div className="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-neutral-100">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategoryExpanded(category.id)}
+                          disabled={!hasChildrenById.get(String(category.id || ""))}
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-base font-black transition-colors ${
+                            hasChildrenById.get(String(category.id || ""))
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-500 hover:bg-emerald-100"
+                              : "border-transparent text-neutral-300"
+                          }`}
+                          aria-label={
+                            expandedCategoryIds.has(String(category.id))
+                              ? "Thu gon danh muc"
+                              : "Mo danh muc"
+                          }
+                        >
+                          {hasChildrenById.get(String(category.id || ""))
+                            ? expandedCategoryIds.has(String(category.id))
+                              ? "-"
+                              : "+"
+                            : ""}
+                        </button>
+                        <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 shadow-sm">
                           {category.bannerUrl ? (
                             <img
                               src={category.bannerUrl}
@@ -588,46 +614,42 @@ function AdminCategories() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-xs text-neutral-400">
+                            <div className="flex h-full items-center justify-center text-xs font-semibold text-neutral-400">
                               No img
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-semibold text-neutral-950">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-base font-black text-neutral-950">
                               {category.name}
                             </div>
-                            {hasChildrenById.get(String(category.id || "")) && (
-                              <button
-                                type="button"
-                                onClick={() => toggleCategoryExpanded(category.id)}
-                                className="inline-flex h-7 items-center rounded-md border border-emerald-100 bg-emerald-50 px-2 text-xs font-bold text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
-                              >
-                                {expandedCategoryIds.has(String(category.id))
-                                  ? "An con"
-                                  : `${category.children?.length || 0} con`}
-                              </button>
-                            )}
+                            <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-neutral-500">
+                              {category.parentId ? `Cap ${category.level + 1}` : "Goc"}
+                            </span>
                           </div>
-                          <div className="mt-1 max-w-xl text-sm text-neutral-500">
+                          <div className="mt-1 max-w-xl truncate text-sm text-neutral-500">
                             {category.description || "Chua co mo ta"}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-sm font-semibold text-neutral-500">
-                      {category.slug ? `/${category.slug}` : "-"}
+                    <td className="border-t border-neutral-100 px-5 py-4">
+                      <span className="inline-flex rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold text-neutral-600">
+                        {category.slug ? `/${category.slug}` : "-"}
+                      </span>
                     </td>
-                    <td className="px-5 py-4 text-sm text-neutral-500">
+                    <td className="border-t border-neutral-100 px-5 py-4 text-sm font-medium text-neutral-600">
                       {category.parentId
                         ? categoryNameById.get(String(category.parentId)) || "-"
-                        : "Danh muc goc"}
+                        : "Goc"}
                     </td>
-                    <td className="px-5 py-4 text-sm font-semibold text-neutral-700">
-                      {category.sortOrder ?? 0}
+                    <td className="border-t border-neutral-100 px-5 py-4 text-sm font-black text-neutral-800">
+                      <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-neutral-100 px-2">
+                        {category.sortOrder ?? 0}
+                      </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="border-t border-neutral-100 px-5 py-4">
                       <span
                         className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${
                           category.active === false
@@ -638,12 +660,12 @@ function AdminCategories() {
                         {category.active === false ? "An" : "Dang hien"}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="border-t border-neutral-100 px-6 py-4">
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => handleEdit(category)}
-                          className="h-9 rounded-md border border-neutral-200 px-3 text-sm font-semibold text-neutral-700 hover:border-emerald-600 hover:text-emerald-600"
+                          className="h-9 rounded-lg border border-neutral-200 bg-white px-3 text-sm font-bold text-neutral-700 shadow-sm hover:border-emerald-600 hover:text-emerald-600"
                         >
                           Sua
                         </button>
@@ -651,7 +673,7 @@ function AdminCategories() {
                           type="button"
                           onClick={() => handleDelete(category)}
                           disabled={deletingId === category.id}
-                          className="h-9 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-600 hover:border-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-bold text-red-600 shadow-sm hover:border-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {deletingId === category.id ? "Dang xoa" : "Xoa"}
                         </button>

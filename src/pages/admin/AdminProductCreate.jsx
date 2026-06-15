@@ -21,7 +21,6 @@ import { uploadImageToCloudinary } from "../../shared/services/cloudinaryUpload"
 
 const emptySize = {
   size: "",
-  sku: "",
   quantity: 0,
 };
 
@@ -43,7 +42,6 @@ function createEmptyColor() {
 
 const initialForm = {
   name: "",
-  slug: "",
   categoryId: "",
   description: "",
   price: "",
@@ -85,7 +83,6 @@ function mapProductToForm(product) {
 
   return {
     name: product?.name || "",
-    slug: product?.slug || "",
     categoryId: product?.category?.id || product?.category?._id || product?.categoryId || "",
     description: product?.description || "",
     price: product?.price ?? "",
@@ -115,7 +112,6 @@ function mapProductToForm(product) {
               ? sizes.map((size) => ({
                   id: getEntityId(size),
                   size: size?.size || size?.sizeName || size?.name || "",
-                  sku: size?.sku || "",
                   quantity: size?.quantity ?? 0,
                 }))
               : [{ ...emptySize }],
@@ -486,7 +482,6 @@ function AdminProductCreate() {
           sizes: color.sizes.map((size) => ({
             id: size.id || undefined,
             size: size.size.trim(),
-            sku: size.sku.trim(),
             quantity: Number(size.quantity || 0),
           })),
         };
@@ -495,7 +490,6 @@ function AdminProductCreate() {
 
     return {
       name: form.name.trim(),
-      slug: form.slug.trim() || undefined,
       categoryId: form.categoryId,
       description: form.description.trim(),
       price: Number(form.price),
@@ -605,7 +599,7 @@ function AdminProductCreate() {
               </label>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-4">
+            <div className="grid gap-4 lg:grid-cols-3">
               <label className="grid gap-2 lg:col-span-2">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
                   Ten san pham
@@ -615,18 +609,6 @@ function AdminProductCreate() {
                   onChange={(event) => updateForm("name", event.target.value)}
                   className="h-11 rounded-md border border-neutral-200 px-3 text-sm text-neutral-950 outline-none focus:border-emerald-600"
                   placeholder="Ao polo premium"
-                />
-              </label>
-
-              <label className="grid gap-2">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
-                  Slug
-                </span>
-                <input
-                  value={form.slug}
-                  onChange={(event) => updateForm("slug", event.target.value)}
-                  className="h-11 rounded-md border border-neutral-200 px-3 text-sm text-neutral-950 outline-none focus:border-emerald-600"
-                  placeholder="ao-polo-premium"
                 />
               </label>
 
@@ -937,7 +919,7 @@ function AdminProductCreate() {
                   {color.sizes.map((size, sizeIndex) => (
                     <div
                       key={sizeIndex}
-                      className="grid gap-3 sm:grid-cols-[1fr_1fr_150px_auto] sm:items-end"
+                      className="grid gap-3 sm:grid-cols-[1fr_150px_auto] sm:items-end"
                     >
                       <label className="grid gap-2">
                         <span className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
@@ -955,25 +937,6 @@ function AdminProductCreate() {
                           }
                           className="h-10 rounded-md border border-neutral-200 px-3 text-sm outline-none focus:border-emerald-600"
                           placeholder="S, M, L, XL"
-                        />
-                      </label>
-
-                      <label className="grid gap-2">
-                        <span className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
-                          SKU
-                        </span>
-                        <input
-                          value={size.sku}
-                          onChange={(event) =>
-                            updateSize(
-                              colorIndex,
-                              sizeIndex,
-                              "sku",
-                              event.target.value,
-                            )
-                          }
-                          className="h-10 rounded-md border border-neutral-200 px-3 text-sm outline-none focus:border-emerald-600"
-                          placeholder="POLO-BLK-M"
                         />
                       </label>
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -26,6 +26,7 @@ import {
 } from '../features/product'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
+import { playAddToCartEffect } from '../shared/utils/cartMotion'
 
 function ProductDetail() {
   const { id } = useParams()
@@ -40,6 +41,14 @@ function ProductDetail() {
   const [quantity, setQuantity] = useState(1)
   const [successMessage, setSuccessMessage] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewText, setReviewText] = useState('')
+  const [reviewImages, setReviewImages] = useState([])
+  const [recommendedProducts, setRecommendedProducts] = useState([])
+  const mainImageRef = useRef(null)
+  const addToCartButtonRef = useRef(null)
+  const reviewImageInputRef = useRef(null)
+  const reviewImagesRef = useRef([])
 
   const colors = useMemo(() => getProductColors(product), [product])
   const selectedColor = colors[selectedColorIndex] || colors[0]
@@ -50,6 +59,7 @@ function ProductDetail() {
   const selectedStock = Number(selectedSizeData?.quantity || 0)
   const mainImage = imageUrls[selectedImageIndex] || getProductImage(product, selectedColor)
   const productName = getProductName(product)
+  const productCategoryId = product?.category?.id || product?.category?._id || product?.categoryId || ''
 
   usePageMeta({
     title: productName ? `${productName} | PoloMan` : 'Chi tiet san pham | PoloMan',
@@ -124,6 +134,47 @@ function ProductDetail() {
     }
   }, [product])
 
+  useEffect(() => {
+    if (!product) return undefined
+
+    let isMounted = true
+    const currentProductId = String(getProductId(product))
+
+    productApi
+      .getAll()
+      .then((list) => {
+        if (!isMounted || !Array.isArray(list)) return
+
+        const activeProducts = list.filter((item) => item.active !== false && String(getProductId(item)) !== currentProductId)
+        const sameCategory = activeProducts.filter((item) => {
+          const categoryId = item?.category?.id || item?.category?._id || item?.categoryId || ''
+
+          return productCategoryId && String(categoryId) === String(productCategoryId)
+        })
+        const otherProducts = activeProducts.filter((item) => !sameCategory.includes(item))
+
+        setRecommendedProducts([...sameCategory, ...otherProducts].slice(0, 4))
+      })
+      .catch(() => {
+        if (isMounted) setRecommendedProducts([])
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [product, productCategoryId])
+
+  useEffect(() => {
+    reviewImagesRef.current = reviewImages
+  }, [reviewImages])
+
+  useEffect(
+    () => () => {
+      reviewImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+    },
+    [],
+  )
+
   const handleAddToCart = async () => {
     if (!product) return false
 
@@ -167,6 +218,10 @@ function ProductDetail() {
 
       setErrorMessage('')
       setSuccessMessage('Da them san pham vao gio hang.')
+      playAddToCartEffect({
+        sourceElement: addToCartButtonRef.current,
+        imageElement: mainImageRef.current,
+      })
       return true
     } catch (error) {
       setSuccessMessage('')
@@ -201,6 +256,73 @@ function ProductDetail() {
     setSuccessMessage(nextFavorite ? 'Da luu san pham vao yeu thich.' : 'Da xoa san pham khoi yeu thich.')
     setErrorMessage('')
   }
+
+  const showImageControls = imageUrls.length > 1
+
+  const goToPreviousImage = () => {
+    if (!showImageControls) return
+
+    setSelectedImageIndex((current) => (current - 1 + imageUrls.length) % imageUrls.length)
+  }
+
+  const goToNextImage = () => {
+    if (!showImageControls) return
+
+    setSelectedImageIndex((current) => (current + 1) % imageUrls.length)
+  }
+
+  const handleReviewImagesChange = (event) => {
+    const files = Array.from(event.target.files || [])
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, Math.max(0, 4 - reviewImages.length))
+
+    event.target.value = ''
+
+    if (!files.length) return
+
+    setReviewImages((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${file.size}`,
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ])
+  }
+
+  const removeReviewImage = (imageId) => {
+    setReviewImages((current) =>
+      current.filter((image) => {
+        if (image.id === imageId) {
+          URL.revokeObjectURL(image.previewUrl)
+          return false
+        }
+
+        return true
+      }),
+    )
+  }
+
+  const handlePreviewReviewSubmit = (event) => {
+    event.preventDefault()
+    setSuccessMessage('Da tao ban xem truoc danh gia. Chuc nang gui API se lam sau.')
+    setErrorMessage('')
+  }
+
+  const reviewSamples = [
+    {
+      name: 'Minh Khang',
+      rating: 5,
+      fit: 'Mua size M - vua nguoi',
+      text: 'Vai ao dung form, vai mem va mau ngoai doi dep hon anh. Giac mac gon nhung khong bi chat.',
+    },
+    {
+      name: 'Quoc Bao',
+      rating: 4,
+      fit: 'Mua size L - thoai mai',
+      text: 'Chat vai on, phan co ao dung dang. Minh cao 1m74 nang 70kg mac L la hop.',
+    },
+  ]
 
   if (isLoading) {
     return (
@@ -256,23 +378,59 @@ function ProductDetail() {
             ))}
           </div>
 
-          <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
+          <div className="relative flex min-h-[420px] items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
             {mainImage ? (
-              <img src={mainImage} alt={productName} className="h-full max-h-[720px] w-full object-cover" />
+              <img
+                ref={mainImageRef}
+                src={mainImage}
+                alt={productName}
+                className="h-full max-h-[720px] w-full object-cover"
+              />
             ) : (
               <div className="flex aspect-square w-full items-center justify-center text-sm font-semibold text-neutral-400">
                 No image
               </div>
+            )}
+
+            {showImageControls && (
+              <>
+                <button
+                  type="button"
+                  onClick={goToPreviousImage}
+                  className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-white/88 text-2xl font-light text-emerald-950 shadow-[0_12px_30px_rgba(2,44,34,0.16)] backdrop-blur transition-all hover:scale-105 hover:bg-white sm:left-4 sm:h-12 sm:w-12"
+                  aria-label="Anh truoc"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={goToNextImage}
+                  className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-white/88 text-2xl font-light text-emerald-950 shadow-[0_12px_30px_rgba(2,44,34,0.16)] backdrop-blur transition-all hover:scale-105 hover:bg-white sm:right-4 sm:h-12 sm:w-12"
+                  aria-label="Anh tiep theo"
+                >
+                  ›
+                </button>
+                <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-emerald-950/45 px-2.5 py-2 backdrop-blur">
+                  {imageUrls.map((imageUrl, index) => (
+                    <button
+                      key={`${imageUrl}-dot`}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`h-2 rounded-full transition-all ${
+                        selectedImageIndex === index ? 'w-6 bg-white' : 'w-2 bg-white/55 hover:bg-white/80'
+                      }`}
+                      aria-label={`Chon anh ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
 
         <div className="space-y-5 rounded-2xl border border-emerald-100 bg-white/85 p-5 shadow-sm sm:p-6">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700/65">
-              Ma san pham: {getProductId(product)}
-            </p>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-emerald-950 sm:text-3xl">{productName}</h1>
+            <h1 className="text-2xl font-black leading-tight text-emerald-950 sm:text-3xl">{productName}</h1>
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <span className="text-2xl font-black text-emerald-800">
                 {formatCurrency(product.salePrice || product.price)}
@@ -342,9 +500,9 @@ function ProductDetail() {
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4">
               <p className="text-sm font-semibold text-emerald-950">Kich thuoc: {selectedSize || 'Chon size'}</p>
-              <a href="/size-guide" className="text-sm font-semibold text-emerald-700 underline">
+              <Link to="/size-guide" className="text-sm font-semibold text-emerald-700 underline">
                 Huong dan chon size
-              </a>
+              </Link>
             </div>
             <div className="flex flex-wrap gap-2">
               {sizes.length ? (
@@ -396,6 +554,7 @@ function ProductDetail() {
               </button>
             </div>
             <button
+              ref={addToCartButtonRef}
               type="button"
               onClick={handleAddToCart}
               className="h-14 rounded-lg border border-emerald-700 bg-white px-5 text-sm font-black uppercase tracking-[0.12em] text-emerald-800 transition-colors hover:bg-emerald-50"
@@ -440,6 +599,194 @@ function ProductDetail() {
             </div>
           )}
         </div>
+      </section>
+
+      {recommendedProducts.length > 0 && (
+        <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700/65">
+                Goi y tiep theo
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-emerald-950">Co the ban se thich</h2>
+            </div>
+            <Link
+              to="/products"
+              className="text-sm font-black uppercase tracking-[0.12em] text-emerald-700 hover:text-emerald-950"
+            >
+              Xem tat ca
+            </Link>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {recommendedProducts.map((item) => {
+              const itemImage = getProductImage(item)
+              const itemPrice = getProductPrice(item)
+
+              return (
+                <Link
+                  key={getProductId(item) || getProductSlug(item)}
+                  to={`/products/${getProductSlug(item)}`}
+                  className="group overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/35 transition-all hover:-translate-y-1 hover:border-emerald-300 hover:bg-white hover:shadow-lg hover:shadow-emerald-950/8"
+                >
+                  <div className="aspect-[4/5] overflow-hidden bg-white">
+                    {itemImage ? (
+                      <img
+                        src={itemImage}
+                        alt={getProductName(item)}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs font-semibold text-neutral-400">
+                        No image
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-emerald-950 group-hover:text-emerald-700">
+                      {getProductName(item)}
+                    </h3>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-black text-emerald-800">
+                        {formatCurrency(item.salePrice || itemPrice)}
+                      </span>
+                      {item.salePrice && (
+                        <span className="text-xs font-semibold text-neutral-400 line-through">
+                          {formatCurrency(item.price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.58fr)]">
+        <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 border-b border-emerald-100 pb-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700/65">
+                Danh gia san pham
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-emerald-950">Khach hang noi gi</h2>
+            </div>
+            <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3">
+              <span className="text-3xl font-black text-emerald-950">4.8</span>
+              <div>
+                <div className="text-sm text-amber-400">★★★★★</div>
+                <p className="text-xs font-semibold text-emerald-900/55">128 danh gia</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {reviewSamples.map((review) => (
+              <article key={review.name} className="rounded-2xl border border-emerald-100 bg-emerald-50/35 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-black text-emerald-950">{review.name}</h3>
+                    <p className="mt-1 text-xs font-semibold text-emerald-800/60">{review.fit}</p>
+                  </div>
+                  <span className="whitespace-nowrap text-sm text-amber-400">
+                    {'★'.repeat(review.rating)}
+                    <span className="text-emerald-100">{'★'.repeat(5 - review.rating)}</span>
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-emerald-900/70">{review.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={handlePreviewReviewSubmit} className="rounded-3xl border border-emerald-100 bg-emerald-950 p-5 text-white shadow-sm sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">
+            Viet danh gia
+          </p>
+          <h2 className="mt-2 text-2xl font-black">Chia se trai nghiem cua ban</h2>
+
+          <div className="mt-5">
+            <p className="text-sm font-bold text-white/80">Cham sao</p>
+            <div className="mt-2 flex gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setReviewRating(star)}
+                  className={`text-4xl leading-none transition-transform hover:scale-110 ${
+                    star <= reviewRating ? 'text-amber-300' : 'text-white/20'
+                  }`}
+                  aria-label={`Chon ${star} sao`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="mt-5 grid gap-2">
+            <span className="text-sm font-bold text-white/80">Binh luan</span>
+            <textarea
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              rows={5}
+              placeholder="San pham mac len the nao, form co vua khong..."
+              className="resize-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-white/35 focus:border-emerald-300"
+            />
+          </label>
+
+          <div className="mt-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-white/80">Anh danh gia</p>
+              <span className="text-xs text-white/45">{reviewImages.length}/4 anh</span>
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {reviewImages.map((image) => (
+                <div key={image.id} className="group relative aspect-square overflow-hidden rounded-xl bg-white/10">
+                  <img src={image.previewUrl} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeReviewImage(image.id)}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-950/75 text-xs font-black text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    aria-label="Xoa anh"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {reviewImages.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() => reviewImageInputRef.current?.click()}
+                  className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-emerald-300/70 bg-white/8 text-2xl font-light text-emerald-100 transition-colors hover:bg-white/14"
+                  aria-label="Them anh danh gia"
+                >
+                  +
+                </button>
+              )}
+            </div>
+            <input
+              ref={reviewImageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleReviewImagesChange}
+              className="sr-only"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="mt-6 flex h-12 w-full items-center justify-center rounded-2xl bg-emerald-300 px-4 text-sm font-black uppercase tracking-[0.12em] text-emerald-950 transition-colors hover:bg-emerald-200"
+          >
+            Xem truoc danh gia
+          </button>
+          <p className="mt-3 text-xs leading-5 text-white/45">
+            Giao dien nay chi luu tam tren man hinh, chua gui API.
+          </p>
+        </form>
       </section>
     </div>
   )

@@ -350,6 +350,7 @@ function Header() {
 
             <Link
               to="/cart"
+              data-cart-target
               className="relative flex h-10 w-10 items-center justify-center rounded-full text-emerald-900/65 hover:bg-emerald-50 hover:text-emerald-950"
               aria-label="Giỏ hàng"
             >
@@ -546,6 +547,7 @@ function Header() {
 
               <Link
                 to="/cart"
+                data-cart-target
                 onClick={closeMenus}
                 className="mb-3 flex h-12 items-center justify-between rounded-xl bg-emerald-50 px-4 text-sm font-black text-emerald-950"
               >

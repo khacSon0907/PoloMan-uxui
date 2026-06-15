@@ -89,10 +89,7 @@ function LocationCombobox({
   const [isOpen, setIsOpen] = useState(false)
   const selectedOption = useMemo(() => findLocationOption(options, value), [options, value])
   const [query, setQuery] = useState(selectedOption?.label || '')
-
-  useEffect(() => {
-    if (!isOpen) setQuery(selectedOption?.label || '')
-  }, [isOpen, selectedOption])
+  const inputValue = isOpen ? query : selectedOption?.label || ''
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -124,13 +121,16 @@ function LocationCombobox({
     <div ref={containerRef} className="relative">
       <input
         type="text"
-        value={query}
+        value={inputValue}
         onChange={(event) => {
           setQuery(event.target.value)
           setIsOpen(true)
         }}
         onFocus={() => {
-          if (!disabled) setIsOpen(true)
+          if (!disabled) {
+            setQuery(selectedOption?.label || '')
+            setIsOpen(true)
+          }
         }}
         disabled={disabled}
         placeholder={isLoading ? 'Đang tải...' : placeholder}

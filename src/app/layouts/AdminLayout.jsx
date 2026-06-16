@@ -1,18 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
 import { tokenStorage } from '../../shared/api'
 
 const adminNavItems = [
-  { to: '/admin', label: 'Tong quan', shortLabel: 'TQ' },
-  { to: '/admin/categories', label: 'Danh muc', shortLabel: 'DM' },
-  { to: '/admin/products', label: 'San pham', shortLabel: 'SP' },
-  { to: '/admin/banners', label: 'Banner', shortLabel: 'BN' },
-  { to: '/admin/promotion-banners', label: 'Promotion', shortLabel: 'PR' },
-  { to: '/admin/orders', label: 'Don hang', shortLabel: 'DH' },
-  { to: '/admin/users', label: 'Khach hang', shortLabel: 'KH' },
-  { to: '/admin/roles', label: 'Roles', shortLabel: 'RL' },
+  { to: '/admin', label: 'Tong quan', icon: '⌂' },
+  { to: '/admin/categories', label: 'Danh muc', icon: '▤' },
+  { to: '/admin/products', label: 'San pham', icon: '▣' },
+  { to: '/admin/banners', label: 'Banner', icon: '▧' },
+  { to: '/admin/promotion-banners', label: 'Promotion', icon: '▱' },
+  { to: '/admin/orders', label: 'Don hang', icon: '⋈' },
+  { to: '/admin/users', label: 'Khach hang', icon: '♙' },
+  { to: '/admin/roles', label: 'Roles', icon: '♜' },
 ]
 
 function getDisplayName(user) {
@@ -26,40 +26,64 @@ function getInitial(user) {
 function AdminLayout() {
   const navigate = useNavigate()
   const user = tokenStorage.getUser()
+  const accountMenuRef = useRef(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setAccountMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [accountMenuOpen])
 
   const handleLogout = async () => {
-    await authApi.logout()
-    navigate('/login', {
-      replace: true,
-      state: {
-        successMessage: 'Dang xuat thanh cong.',
-      },
-    })
+    setIsLoggingOut(true)
+
+    try {
+      await authApi.logout()
+      setAccountMenuOpen(false)
+      navigate('/login', {
+        replace: true,
+        state: {
+          successMessage: 'Dang xuat thanh cong.',
+        },
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-emerald-50/45 text-neutral-950">
+    <div className="min-h-screen bg-[#f8fbf8] text-neutral-950">
       <aside
-        className={`fixed inset-y-0 left-0 hidden border-r border-emerald-900/20 bg-[#052f25] text-white shadow-2xl transition-all duration-300 lg:flex lg:flex-col ${
+        className={`fixed inset-y-0 left-0 hidden border-r border-emerald-100 bg-[linear-gradient(180deg,#f7fff9_0%,#f1fbf5_58%,#ffffff_100%)] text-emerald-950 shadow-[14px_0_50px_rgba(6,78,59,0.06)] transition-all duration-300 lg:flex lg:flex-col ${
           sidebarCollapsed ? 'w-24' : 'w-72'
         }`}
       >
-        <div className="px-5 pb-5 pt-6">
+        <div className="px-5 pb-6 pt-6">
           <Link
             to="/admin"
-            className={`flex items-center rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-inner shadow-white/5 ${
-              sidebarCollapsed ? 'justify-center' : 'gap-3'
-            }`}
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-4'}`}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-400 text-lg font-black text-emerald-950">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-xl font-light text-white shadow-lg shadow-emerald-700/20">
               P
             </span>
             <span className={`min-w-0 ${sidebarCollapsed ? 'hidden' : ''}`}>
-              <span className="block text-xl font-light tracking-[0.24em] uppercase text-white">
+              <span className="block text-xl font-light uppercase tracking-[0.28em] text-emerald-950">
                 POLOMAN
               </span>
-              <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200/70">
+              <span className="mt-1 block text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700/65">
                 Admin console
               </span>
             </span>
@@ -68,7 +92,7 @@ function AdminLayout() {
 
         <nav className="flex-1 space-y-1 px-4">
           <p
-            className={`px-3 pb-3 pt-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/45 ${
+            className={`px-3 pb-4 pt-3 text-[11px] font-black uppercase tracking-[0.22em] text-emerald-900/55 ${
               sidebarCollapsed ? 'text-center' : ''
             }`}
           >
@@ -80,112 +104,174 @@ function AdminLayout() {
               to={item.to}
               end={item.to === '/admin'}
               className={({ isActive }) =>
-                `group relative flex min-h-12 items-center rounded-xl px-3 text-sm font-semibold transition-all ${
+                `group relative flex min-h-12 items-center rounded-2xl px-3 text-sm font-bold transition-all ${
                   sidebarCollapsed ? 'justify-center' : 'gap-3'
                 } ${
                   isActive
-                    ? 'bg-white text-emerald-950 shadow-lg shadow-black/15'
-                    : 'text-emerald-50/75 hover:bg-white/[0.08] hover:text-white'
+                    ? 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100'
+                    : 'text-emerald-950/72 hover:bg-white hover:text-emerald-900 hover:shadow-sm'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
                   <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base ${
                       isActive
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-white/[0.08] text-emerald-100 group-hover:bg-white/[0.14]'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-emerald-50 text-emerald-900/70 group-hover:bg-emerald-100'
                     }`}
                   >
-                    {item.shortLabel}
+                    {item.icon}
                   </span>
-                  <span className={`flex-1 ${sidebarCollapsed ? 'hidden' : ''}`}>
-                    {item.label}
-                  </span>
-                  {isActive && !sidebarCollapsed && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+                  <span className={`flex-1 ${sidebarCollapsed ? 'hidden' : ''}`}>{item.label}</span>
+                  {isActive && !sidebarCollapsed && <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />}
                 </>
               )}
             </NavLink>
           ))}
         </nav>
 
-        <div className={`m-4 rounded-2xl border border-white/10 bg-white/[0.05] p-3 ${sidebarCollapsed ? 'hidden' : ''}`}>
-          <p className="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-100/45">
-            Storefront
+        <div className={`${sidebarCollapsed ? 'hidden' : 'block'} border-t border-emerald-100 p-4`}>
+          <p className="px-3 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-900/55">
+            Store front
           </p>
           <Link
             to="/"
-            className="mt-3 flex h-11 items-center justify-between rounded-xl bg-emerald-400 px-3 text-sm font-black text-emerald-950 hover:bg-emerald-300"
+            className="mt-3 flex h-12 items-center justify-between rounded-2xl border border-emerald-100 bg-white px-4 text-sm font-bold text-emerald-950 shadow-sm hover:border-emerald-300 hover:bg-emerald-50"
           >
-            <span>Xem website</span>
-            <span aria-hidden="true">-</span>
+            <span className="flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">▣</span>
+              Xem website
+            </span>
+            <span aria-hidden="true">↗</span>
           </Link>
+
+          <div className="mt-20 rounded-2xl border border-emerald-100 bg-white/85 p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 bg-white text-lg">
+                ◎
+              </span>
+              <div>
+                <p className="text-sm font-black text-emerald-950">POLOMAN</p>
+                <p className="mt-1 text-xs text-emerald-900/60">Premium Polo For Men</p>
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
 
-      <div
-        className={`transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:pl-24' : 'lg:pl-72'
-        }`}
-      >
-        <header className="sticky top-0 z-40 border-b border-emerald-100 bg-white/90 backdrop-blur-xl">
-          <div className="flex min-h-20 flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-8">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSidebarCollapsed((current) => !current)}
-                  className="hidden h-11 w-11 items-center justify-center rounded-xl border border-emerald-100 bg-white text-lg font-black text-emerald-800 shadow-sm hover:border-emerald-500 hover:bg-emerald-50 lg:flex"
-                  aria-label={sidebarCollapsed ? 'Mo sidebar' : 'Thu gon sidebar'}
-                >
-                  {sidebarCollapsed ? '>' : '<'}
-                </button>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-600/70">
-                    Quan tri he thong
-                  </p>
-                  <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-neutral-950">
-                    Bang dieu khien
-                  </h1>
-                </div>
-              </div>
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-24' : 'lg:pl-72'}`}>
+        <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur-xl">
+          <div className="flex min-h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              className="hidden h-11 w-11 items-center justify-center rounded-xl text-xl text-emerald-950 hover:bg-emerald-50 lg:flex"
+              aria-label={sidebarCollapsed ? 'Mo sidebar' : 'Thu gon sidebar'}
+            >
+              ☰
+            </button>
+
+            <div className="hidden">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-emerald-900/40">⌕</span>
             </div>
 
-            <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
-              <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-2">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-sm font-black text-white">
-                  {getInitial(user)}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-neutral-950">{getDisplayName(user)}</p>
-                  {user?.email && <p className="truncate text-xs text-neutral-500">{user.email}</p>}
-                </div>
-              </div>
-              <Link
-                to="/"
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-800 shadow-sm hover:border-emerald-500 hover:bg-emerald-50"
-              >
-                Website
-              </Link>
+            <div className="ml-auto flex items-center gap-4">
               <button
                 type="button"
-                onClick={handleLogout}
-                className="h-11 shrink-0 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white shadow-sm shadow-emerald-900/15 hover:bg-emerald-800"
+                className="hidden"
+                aria-label="Thong bao"
               >
-                Dang xuat
+                ♧
+                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
+                  3
+                </span>
               </button>
+
+              <div ref={accountMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((current) => !current)}
+                  className="flex items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors hover:bg-emerald-50"
+                  aria-label="Menu tai khoan"
+                  aria-expanded={accountMenuOpen}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-sm font-black text-emerald-800">
+                    {user?.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" /> : getInitial(user)}
+                  </div>
+                  <div className="hidden min-w-0 text-left sm:block">
+                    <p className="truncate text-sm font-black text-neutral-950">{getDisplayName(user)}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-neutral-500">admin</p>
+                  </div>
+                  <span className="hidden text-lg text-neutral-500 sm:block">⌄</span>
+                </button>
+
+                {accountMenuOpen && (
+                  <div className="absolute right-0 top-14 z-50 w-72 overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-[0_24px_70px_rgba(6,78,59,0.16)]">
+                    <div className="border-b border-emerald-100 bg-emerald-50/70 px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-700 text-sm font-black text-white">
+                          {user?.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" /> : getInitial(user)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-emerald-950">{getDisplayName(user)}</p>
+                          <p className="mt-1 truncate text-xs font-semibold text-emerald-900/55">
+                            {user?.email || 'admin'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2">
+                      <Link
+                        to="/account"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-emerald-950/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">♙</span>
+                        Tai khoan cua toi
+                      </Link>
+                      <Link
+                        to="/change-password"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-emerald-950/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">▣</span>
+                        Doi mat khau
+                      </Link>
+                      <Link
+                        to="/"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-emerald-950/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">↗</span>
+                        Xem website
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="mt-1 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600">↪</span>
+                        {isLoggingOut ? 'Dang dang xuat...' : 'Dang xuat'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <nav className="scrollbar-hidden flex gap-2 overflow-x-auto border-t border-neutral-100 px-4 py-3 sm:px-5 lg:hidden">
+          <nav className="scrollbar-hidden flex gap-2 overflow-x-auto border-t border-neutral-100 px-4 py-3 sm:px-6 lg:hidden">
             {adminNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === '/admin'}
                 className={({ isActive }) =>
-                  `whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold ${
+                  `whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold ${
                     isActive ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800'
                   }`
                 }
@@ -196,7 +282,7 @@ function AdminLayout() {
           </nav>
         </header>
 
-        <main className="px-4 py-5 sm:px-5 sm:py-6 lg:px-8">
+        <main className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
           <Outlet />
         </main>
       </div>

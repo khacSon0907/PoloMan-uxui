@@ -14,6 +14,7 @@ import {
   getProductColors,
   getProductImages,
   getProductSizes,
+  formatCurrency,
   productApi,
 } from "../../features/product";
 import { getApiMessage } from "../../shared/api";
@@ -548,45 +549,69 @@ function AdminProductCreate() {
     );
   }
 
+  const selectedCategory = categoryOptions.find(
+    (category) => String(category.id) === String(form.categoryId),
+  );
+  const previewColor = form.colors[0] || createEmptyColor();
+  const previewImage =
+    previewColor.mainImagePreview ||
+    previewColor.existingMainImagePreview ||
+    previewColor.subImagePreviews?.[0] ||
+    previewColor.existingSubImages?.[0]?.url ||
+    "";
+  const previewStock = form.colors.reduce(
+    (sum, color) =>
+      sum +
+      color.sizes.reduce(
+        (colorSum, size) => colorSum + Number(size.quantity || 0),
+        0,
+      ),
+    0,
+  );
+  const previewSalePercent =
+    Number(form.price) > 0 && Number(form.salePrice) > 0
+      ? Math.round(((Number(form.price) - Number(form.salePrice)) / Number(form.price)) * 100)
+      : 0;
+
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-        <div className="grid gap-5 bg-emerald-600 p-5 text-white sm:p-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
-              Product setup
-            </p>
-            <h2 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
-              {isEditMode ? "Cap nhat san pham" : "Tao san pham moi"}
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-              {isEditMode
-                ? "Chinh sua thong tin co ban, mau, size, ton kho va hinh anh san pham."
-                : "Nhap thong tin co ban, them mau, size, anh chinh va nhieu anh phu cho tung mau."}
-            </p>
-          </div>
-          <Link
-            to="/admin/products"
-            className="flex h-10 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-bold uppercase tracking-[0.12em] text-white hover:bg-white/10"
-          >
-            Ve danh sach
-          </Link>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-neutral-950 sm:text-3xl">
+            {isEditMode ? "Cap nhat san pham" : "Tao san pham moi"}
+          </h1>
+          <p className="mt-2 text-sm text-neutral-500">
+            Trang chu <span className="mx-2 text-neutral-300">&gt;</span> San pham{" "}
+            <span className="mx-2 text-neutral-300">&gt;</span>{" "}
+            <span className="font-semibold text-emerald-700">
+              {isEditMode ? "Cap nhat" : "Tao san pham"}
+            </span>
+          </p>
         </div>
+        <Link
+          to="/admin/products"
+          className="flex h-11 items-center justify-center rounded-xl border border-emerald-100 bg-white px-4 text-sm font-bold text-emerald-800 shadow-sm hover:border-emerald-300 hover:bg-emerald-50"
+        >
+          Ve danh sach
+        </Link>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 p-4 sm:p-5">
-          <div className="rounded-lg border border-neutral-200 p-4">
-            <div className="mb-4 flex items-center justify-between gap-3 border-b border-neutral-100 pb-3">
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+            <div className="mb-5 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-neutral-950">
+                <h3 className="text-lg font-black text-neutral-950">
                   Thong tin co ban
                 </h3>
                 <p className="mt-1 text-sm text-neutral-500">
                   Ten, danh muc, gia va mo ta hien thi ngoai website.
                 </p>
               </div>
-              <label className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2">
+              <label className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2">
                 <span className="text-sm font-semibold text-neutral-700">
-                  Active
+                  Dang ban
                 </span>
                 <input
                   type="checkbox"
@@ -683,9 +708,9 @@ function AdminProductCreate() {
                 />
               </label>
             </div>
-          </div>
+            </div>
 
-          <section className="space-y-4 rounded-lg border border-neutral-200 p-4">
+            <section className="space-y-4 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 border-b border-neutral-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-base font-semibold text-neutral-950">
@@ -1007,7 +1032,87 @@ function AdminProductCreate() {
               </button>
             </div>
           </div>
-        </form>
+          </form>
+        </div>
+
+        <aside className="space-y-5 lg:sticky lg:top-28 lg:self-start">
+          <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
+            <div className="p-5">
+              <h3 className="text-base font-black text-neutral-950">Xem truoc san pham</h3>
+              <div className="mt-4 overflow-hidden rounded-2xl bg-emerald-50">
+                {previewImage ? (
+                  <img src={previewImage} alt="" className="aspect-square w-full object-cover" />
+                ) : (
+                  <div className="flex aspect-square items-center justify-center px-6 text-center text-sm font-semibold text-emerald-900/45">
+                    Anh chinh se hien thi tai day
+                  </div>
+                )}
+              </div>
+              <h4 className="mt-5 line-clamp-2 text-lg font-black text-neutral-950">
+                {form.name || "Ten san pham"}
+              </h4>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <span className="text-lg font-black text-emerald-700">
+                  {formatCurrency(form.salePrice || form.price)}
+                </span>
+                {form.salePrice && (
+                  <span className="text-sm font-semibold text-neutral-400 line-through">
+                    {formatCurrency(form.price)}
+                  </span>
+                )}
+                {previewSalePercent > 0 && (
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">
+                    -{previewSalePercent}%
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 space-y-2 text-sm text-neutral-600">
+                <p>
+                  <span className="font-bold text-neutral-950">Danh muc:</span>{" "}
+                  {selectedCategory?.name || "Chua chon"}
+                </p>
+                <p>
+                  <span className="font-bold text-neutral-950">Trang thai:</span>{" "}
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                    {form.active ? "Dang ban" : "Tam an"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-emerald-100 p-5">
+              <h3 className="text-base font-black text-neutral-950">Thong tin nhanh</h3>
+              <div className="mt-4 space-y-3 text-sm text-neutral-600">
+                <div className="flex justify-between gap-4">
+                  <span>Gia ban</span>
+                  <span className="font-bold text-neutral-950">{formatCurrency(form.price)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>Gia khuyen mai</span>
+                  <span className="font-bold text-neutral-950">{formatCurrency(form.salePrice)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>Danh muc</span>
+                  <span className="text-right font-bold text-neutral-950">{selectedCategory?.name || "-"}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>So luong ton kho</span>
+                  <span className="font-bold text-neutral-950">{previewStock}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
+            <h3 className="text-base font-black text-emerald-950">Tips</h3>
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-emerald-900/70">
+              <li>Ten san pham nen ngan gon, de hieu va chua tu khoa.</li>
+              <li>Mo ta ngan se hien thi tren trang chi tiet san pham.</li>
+              <li>Anh ro net giup tang ti le ban hang.</li>
+              <li>Gia khuyen mai co the de trong neu khong ap dung.</li>
+            </ul>
+          </div>
+        </aside>
       </section>
     </div>
   );

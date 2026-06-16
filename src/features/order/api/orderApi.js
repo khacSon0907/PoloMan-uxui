@@ -6,8 +6,7 @@ function unwrapApiResponse(response) {
 }
 
 function normalizeCreateOrderPayload(payload) {
-  return {
-    userId: payload?.userId || '',
+  const normalizedPayload = {
     receiverName: payload?.receiverName || '',
     receiverPhone: payload?.receiverPhone || '',
     receiverAddress: payload?.receiverAddress || '',
@@ -17,6 +16,17 @@ function normalizeCreateOrderPayload(payload) {
     paymentMethod: payload?.paymentMethod || 'COD',
     note: payload?.note || '',
   }
+
+  if (payload?.userId) {
+    normalizedPayload.userId = payload.userId
+  } else if (payload?.guest) {
+    normalizedPayload.guest = {
+      email: payload.guest.email || '',
+      username: payload.guest.username || '',
+    }
+  }
+
+  return normalizedPayload
 }
 
 export const orderApi = {

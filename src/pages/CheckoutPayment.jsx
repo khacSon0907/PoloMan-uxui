@@ -46,6 +46,10 @@ function getCreateOrderItems(items) {
   }))
 }
 
+function getPaymentUrl(payment, order) {
+  return payment?.checkoutUrl || payment?.paymentUrl || order?.checkoutUrl || order?.paymentUrl || ''
+}
+
 function CheckoutPayment() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -53,6 +57,8 @@ function CheckoutPayment() {
   const payload = useMemo(() => location.state || readStoredPayment(), [location.state])
   const order = payload?.order
   const payment = order?.payment
+  const paymentUrl = getPaymentUrl(payment, order)
+  const isGuestOrder = Boolean(order?.guest || !order?.userId)
   const items = Array.isArray(payload?.items) ? payload.items : []
   const [socketStatus, setSocketStatus] = useState('connecting')
   const [statusMessage, setStatusMessage] = useState('Dang ket noi cong thanh toan...')
@@ -90,9 +96,11 @@ function CheckoutPayment() {
           socketCleanupRef.current?.()
           socketCleanupRef.current = null
 
-          window.setTimeout(() => {
-            navigate(`/account/orders/${message?.orderId || payment.orderId || order.id}`, { replace: true })
-          }, 900)
+          if (!isGuestOrder) {
+            window.setTimeout(() => {
+              navigate(`/account/orders/${message?.orderId || payment.orderId || order.id}`, { replace: true })
+            }, 900)
+          }
           return
         }
 
@@ -115,7 +123,7 @@ function CheckoutPayment() {
       cleanup()
       socketCleanupRef.current = null
     }
-  }, [navigate, order?.id, payment?.orderId, retryCount])
+  }, [isGuestOrder, navigate, order?.id, payment?.orderId, retryCount])
 
   const handleRetryPayment = () => {
     setSocketStatus('connecting')
@@ -133,6 +141,7 @@ function CheckoutPayment() {
     try {
       const codOrder = await orderApi.createOrder({
         userId: order.userId,
+        guest: order.guest,
         receiverName: order.receiverName,
         receiverPhone: order.receiverPhone,
         receiverAddress: order.receiverAddress,
@@ -144,6 +153,16 @@ function CheckoutPayment() {
       })
 
       sessionStorage.removeItem('poloman:checkout-payment')
+      if (isGuestOrder) {
+        navigate('/cart', {
+          replace: true,
+          state: {
+            message: `Da doi sang COD${codOrder?.orderCode ? `: ${codOrder.orderCode}` : ''}. Hoa don da duoc gui ve email.`,
+          },
+        })
+        return
+      }
+
       navigate('/account/orders', {
         replace: true,
         state: {
@@ -157,7 +176,7 @@ function CheckoutPayment() {
     }
   }
 
-  if (!order || !payment?.qrCode) {
+  if (!order || (!payment?.qrCode && !paymentUrl)) {
     return <Navigate to="/cart" replace />
   }
 
@@ -258,9 +277,11 @@ function CheckoutPayment() {
               </div>
 
               <div className="p-5">
-                <div className="mx-auto flex max-w-80 items-center justify-center rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_18px_50px_rgba(20,83,45,0.12)]">
-                  <QRCodeCanvas value={payment.qrCode} size={288} level="M" includeMargin className="h-auto w-full" />
-                </div>
+                {payment.qrCode && (
+                  <div className="mx-auto flex max-w-80 items-center justify-center rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_18px_50px_rgba(20,83,45,0.12)]">
+                    <QRCodeCanvas value={payment.qrCode} size={288} level="M" includeMargin className="h-auto w-full" />
+                  </div>
+                )}
 
                 <div className="mt-5 overflow-hidden rounded-xl border border-emerald-100">
                   <div className="grid grid-cols-[110px_1fr] border-b border-emerald-100 text-sm">
@@ -289,9 +310,9 @@ function CheckoutPayment() {
                   {errorMessage || statusMessage}
                 </div>
 
-                {payment.checkoutUrl && !isPaid && (
+                {paymentUrl && !isPaid && (
                   <a
-                    href={payment.checkoutUrl}
+                    href={paymentUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-4 flex h-11 w-full items-center justify-center rounded-lg border border-emerald-200 px-5 text-sm font-bold text-emerald-800 hover:border-emerald-600"
@@ -320,12 +341,21 @@ function CheckoutPayment() {
                   </div>
                 )}
 
-                <Link
-                  to="/account/orders"
-                  className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900"
-                >
-                  Xem don hang
-                </Link>
+                {isGuestOrder ? (
+                  <Link
+                    to="/products"
+                    className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900"
+                  >
+                    Tiep tuc mua sam
+                  </Link>
+                ) : (
+                  <Link
+                    to="/account/orders"
+                    className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900"
+                  >
+                    Xem don hang
+                  </Link>
+                )}
               </div>
             </div>
           </aside>

@@ -50,6 +50,15 @@ function productMatchesSize(product, selectedSize) {
   )
 }
 
+function getDiscountPercent(product) {
+  const price = Number(product?.price || 0)
+  const salePrice = Number(product?.salePrice || 0)
+
+  if (!price || !salePrice || salePrice >= price) return 0
+
+  return Math.round(((price - salePrice) / price) * 100)
+}
+
 function Products() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedSize, setSelectedSize] = useState('all')
@@ -283,6 +292,7 @@ function Products() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 lg:gap-6">
               {filteredProducts.map((prod, index) => {
                 const imageUrl = getProductImage(prod)
+                const discountPercent = getDiscountPercent(prod)
 
                 return (
                   <Link
@@ -290,12 +300,17 @@ function Products() {
                     to={`/products/${getProductSlug(prod)}`}
                     className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
                   >
-                    <div className="relative aspect-[4/5] overflow-hidden bg-emerald-50 sm:h-60 sm:aspect-auto">
+                    <div className="relative aspect-square overflow-hidden bg-neutral-50">
+                      {discountPercent > 0 && (
+                        <span className="absolute left-3 top-3 z-10 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 shadow-sm">
+                          -{discountPercent}%
+                        </span>
+                      )}
                       {imageUrl ? (
                         <img
                           src={imageUrl}
                           alt={prod.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-neutral-400">

@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  Package,
+  Pencil,
+  Plus,
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   categoryApi,
@@ -14,6 +23,8 @@ import {
   productApi,
 } from "../../features/product";
 import { getApiMessage } from "../../shared/api";
+
+const ADMIN_PRODUCTS_LIMIT = 20;
 
 function getProductImageCount(product) {
   const colors = product?.colors || product?.colorVariants || [];
@@ -48,18 +59,26 @@ function getFirstSku(product) {
 }
 
 function AdminProducts() {
+  const navigate = useNavigate();
+  const loadMoreRef = useRef(null);
+  const isLoadingMoreRef = useRef(false);
+  const productsRequestSeq = useRef(0);
   const [products, setProducts] = useState([]);
-  const [allProducts, setAllProducts] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasNext, setHasNext] = useState(false);
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [error, setError] = useState(null);
+
+  const isLoading = isLoadingInitial || isLoadingMore;
 
   const categoryOptions = useMemo(
     () => flattenCategoryTree(categories),
@@ -75,17 +94,17 @@ function AdminProducts() {
     [categoryOptions],
   );
   const totalStock = useMemo(
-    () => allProducts.reduce((sum, product) => sum + getProductStock(product), 0),
-    [allProducts],
+    () => products.reduce((sum, product) => sum + getProductStock(product), 0),
+    [products],
   );
   const activeCount = useMemo(
-    () => allProducts.filter((product) => product.active !== false).length,
-    [allProducts],
+    () => products.filter((product) => product.active !== false).length,
+    [products],
   );
-  const hiddenCount = Math.max(allProducts.length - activeCount, 0);
+  const hiddenCount = Math.max(products.length - activeCount, 0);
   const outOfStockCount = useMemo(
-    () => allProducts.filter((product) => getProductStock(product) <= 0).length,
-    [allProducts],
+    () => products.filter((product) => getProductStock(product) <= 0).length,
+    [products],
   );
 
   const filteredProducts = useMemo(() => {
@@ -102,59 +121,115 @@ function AdminProducts() {
         statusFilter === "all" ||
         (statusFilter === "active" && product.active !== false) ||
         (statusFilter === "hidden" && product.active === false);
+      const categoryId = getProductCategoryId(product);
+      const matchesCategory =
+        selectedCategoryId === "all" || String(categoryId) === String(selectedCategoryId);
       const matchesStock =
         stockFilter === "all" ||
         (stockFilter === "in-stock" && stock > 10) ||
         (stockFilter === "low-stock" && stock > 0 && stock <= 10) ||
         (stockFilter === "out-of-stock" && stock <= 0);
 
-      return matchesQuery && matchesStatus && matchesStock;
+      return matchesQuery && matchesStatus && matchesCategory && matchesStock;
     });
-  }, [products, searchQuery, statusFilter, stockFilter]);
+  }, [products, searchQuery, selectedCategoryId, statusFilter, stockFilter]);
 
-  const loadProducts = async (categoryId = selectedCategoryId) => {
-    setIsLoading(true);
-    setErrorMessage("");
+  const handleProductRequestError = useCallback(
+    (requestError) => {
+      const status = requestError?.response?.status || requestError?.status;
 
-    try {
-      const productList =
-        categoryId && categoryId !== "all"
-          ? await productApi.getByCategoryId(categoryId)
-          : await productApi.list();
-      setProducts(Array.isArray(productList) ? productList : []);
-      if (!categoryId || categoryId === "all") {
-        setAllProducts(Array.isArray(productList) ? productList : []);
+      if (status === 401) {
+        setError("Phien dang nhap da het han. Vui long dang nhap lai.");
+        navigate("/login", { replace: true, state: { from: { pathname: "/admin/products" } } });
+        return;
       }
-    } catch (error) {
-      setErrorMessage(
-        getApiMessage(error, "Khong the tai danh sach san pham."),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
+      if (status === 403) {
+        setError("Tai khoan khong co quyen quan tri san pham.");
+        return;
+      }
+
+      setError(getApiMessage(requestError, "Khong the tai danh sach san pham."));
+    },
+    [navigate],
+  );
+
+  const loadProductsPage = useCallback(
+    async ({ cursor = null, reset = false } = {}) => {
+      if (!reset && (!cursor || isLoadingMoreRef.current)) return;
+
+      const requestId = reset ? productsRequestSeq.current + 1 : productsRequestSeq.current;
+      productsRequestSeq.current = requestId;
+
+      if (reset) {
+        isLoadingMoreRef.current = false;
+        setIsLoadingInitial(true);
+        setIsLoadingMore(false);
+        setProducts([]);
+        setNextCursor(null);
+        setHasNext(false);
+      } else {
+        isLoadingMoreRef.current = true;
+        setIsLoadingMore(true);
+      }
+
+      setError(null);
+
+      try {
+        const page = await productApi.getAdminProductsByCursor({
+          cursor,
+          limit: ADMIN_PRODUCTS_LIMIT,
+        });
+        const items = Array.isArray(page.items) ? page.items : [];
+
+        if (requestId !== productsRequestSeq.current) return;
+
+        setProducts((current) => {
+          if (reset) return items;
+
+          const seen = new Set(current.map((product) => String(getProductId(product))));
+          const nextItems = items.filter((product) => {
+            const productId = String(getProductId(product));
+            if (!productId || seen.has(productId)) return false;
+            seen.add(productId);
+            return true;
+          });
+
+          return [...current, ...nextItems];
+        });
+        setNextCursor(page.nextCursor || null);
+        setHasNext(Boolean(page.hasNext && page.nextCursor));
+      } catch (requestError) {
+        handleProductRequestError(requestError);
+      } finally {
+        if (reset) {
+          setIsLoadingInitial(false);
+        } else {
+          isLoadingMoreRef.current = false;
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [handleProductRequestError],
+  );
 
   useEffect(() => {
     let isMounted = true;
 
-    Promise.all([categoryApi.list(), productApi.list()])
-      .then(([categoryList, productList]) => {
+    categoryApi
+      .list()
+      .then((categoryList) => {
         if (isMounted) {
           setCategories(normalizeCategoryTree(categoryList));
-          setProducts(Array.isArray(productList) ? productList : []);
-          setAllProducts(Array.isArray(productList) ? productList : []);
         }
       })
-      .catch((error) => {
+      .catch((requestError) => {
         if (isMounted) {
-          setErrorMessage(
-            getApiMessage(error, "Khong the tai danh sach san pham."),
-          );
+          setError(getApiMessage(requestError, "Khong the tai danh muc san pham."));
         }
       })
       .finally(() => {
         if (isMounted) {
-          setIsLoading(false);
           setIsLoadingCategories(false);
         }
       });
@@ -164,9 +239,51 @@ function AdminProducts() {
     };
   }, []);
 
-  const handleSelectCategory = async (categoryId) => {
+  useEffect(() => {
+    Promise.resolve().then(() => loadProductsPage({ reset: true }));
+  }, [loadProductsPage]);
+
+  useEffect(() => {
+    const trigger = loadMoreRef.current;
+
+    if (!trigger || !hasNext || !nextCursor || isLoading) return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          loadProductsPage({ cursor: nextCursor });
+        }
+      },
+      { rootMargin: "240px 0px" },
+    );
+
+    observer.observe(trigger);
+
+    return () => observer.disconnect();
+  }, [hasNext, isLoading, loadProductsPage, nextCursor]);
+
+  const refreshProducts = () => {
+    loadProductsPage({ reset: true });
+  };
+
+  const handleLoadMore = () => {
+    if (!hasNext || !nextCursor || isLoading) return;
+    loadProductsPage({ cursor: nextCursor });
+  };
+
+  const handleSelectCategory = (categoryId) => {
     setSelectedCategoryId(categoryId);
-    await loadProducts(categoryId);
+    loadProductsPage({ reset: true });
+  };
+
+  const handleSelectStatus = (status) => {
+    setStatusFilter(status);
+    loadProductsPage({ reset: true });
+  };
+
+  const handleSelectStock = (stock) => {
+    setStockFilter(stock);
+    loadProductsPage({ reset: true });
   };
 
   const handleConfirmDelete = async () => {
@@ -175,19 +292,16 @@ function AdminProducts() {
     if (!productId) return;
 
     setIsDeleting(true);
-    setErrorMessage("");
+    setError(null);
 
     try {
       await productApi.delete(productId);
       setProducts((current) =>
         current.filter((product) => String(getProductId(product)) !== String(productId)),
       );
-      setAllProducts((current) =>
-        current.filter((product) => String(getProductId(product)) !== String(productId)),
-      );
       setProductToDelete(null);
-    } catch (error) {
-      setErrorMessage(getApiMessage(error, "Khong the xoa san pham."));
+    } catch (requestError) {
+      setError(getApiMessage(requestError, "Khong the xoa san pham."));
     } finally {
       setIsDeleting(false);
     }
@@ -210,7 +324,7 @@ function AdminProducts() {
             to="/admin/products/create"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-black text-white shadow-sm shadow-emerald-900/15 hover:bg-emerald-800"
           >
-            <span className="text-lg leading-none">+</span>
+            <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
             Tao san pham moi
           </Link>
         </div>
@@ -218,48 +332,48 @@ function AdminProducts() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
-                ▣
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <Package size={25} strokeWidth={2.1} aria-hidden="true" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-neutral-500">Tong san pham</p>
-                <p className="mt-1 text-2xl font-black text-neutral-950">{allProducts.length}</p>
-                <p className="mt-1 text-xs font-semibold text-emerald-600">Dang quan ly</p>
+                <p className="mt-1 text-2xl font-black text-neutral-950">{products.length}</p>
+                <p className="mt-1 text-xs font-semibold text-emerald-600">Da tai</p>
               </div>
             </div>
           </div>
           <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">
-                ■
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                <Eye size={25} strokeWidth={2.1} aria-hidden="true" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-neutral-500">Dang hien thi</p>
                 <p className="mt-1 text-2xl font-black text-neutral-950">{activeCount}</p>
                 <p className="mt-1 text-xs font-semibold text-neutral-400">
-                  {allProducts.length ? Math.round((activeCount / allProducts.length) * 100) : 0}% tong san pham
+                  {products.length ? Math.round((activeCount / products.length) * 100) : 0}% san pham da tai
                 </p>
               </div>
             </div>
           </div>
           <div className="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl">
-                ◧
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                <EyeOff size={25} strokeWidth={2.1} aria-hidden="true" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-neutral-500">Tam an</p>
                 <p className="mt-1 text-2xl font-black text-neutral-950">{hiddenCount}</p>
                 <p className="mt-1 text-xs font-semibold text-neutral-400">
-                  {allProducts.length ? Math.round((hiddenCount / allProducts.length) * 100) : 0}% tong san pham
+                  {products.length ? Math.round((hiddenCount / products.length) * 100) : 0}% san pham da tai
                 </p>
               </div>
             </div>
           </div>
           <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl">
-                !
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertTriangle size={25} strokeWidth={2.1} aria-hidden="true" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-neutral-500">Het hang</p>
@@ -303,7 +417,7 @@ function AdminProducts() {
               <span className="text-xs font-bold text-neutral-500">Trang thai</span>
               <select
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={(event) => handleSelectStatus(event.target.value)}
                 className="h-11 rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
               >
                 <option value="all">Tat ca trang thai</option>
@@ -315,7 +429,7 @@ function AdminProducts() {
               <span className="text-xs font-bold text-neutral-500">Kho hang</span>
               <select
                 value={stockFilter}
-                onChange={(event) => setStockFilter(event.target.value)}
+                onChange={(event) => handleSelectStock(event.target.value)}
                 className="h-11 rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-emerald-500"
               >
                 <option value="all">Tat ca</option>
@@ -326,7 +440,7 @@ function AdminProducts() {
             </label>
             <button
               type="button"
-              onClick={() => loadProducts()}
+              onClick={refreshProducts}
               disabled={isLoading}
               className="h-11 rounded-xl border border-neutral-200 px-4 text-sm font-bold text-neutral-700 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -335,14 +449,14 @@ function AdminProducts() {
           </div>
         </div>
 
-        {errorMessage && (
+        {error && (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {errorMessage}
+            {error}
           </div>
         )}
 
         <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-200">
-          {isLoading ? (
+          {isLoadingInitial ? (
             <div className="flex min-h-64 items-center justify-center">
               <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-600" />
             </div>
@@ -436,25 +550,25 @@ function AdminProducts() {
                           <div className="flex justify-end gap-2">
                             <Link
                               to={`/admin/products/${productId}`}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700"
                               aria-label="Chi tiet"
                             >
-                              ◉
+                              <Eye size={17} strokeWidth={2.1} aria-hidden="true" />
                             </Link>
                             <Link
                               to={`/admin/products/${productId}/edit`}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700"
                               aria-label="Chinh sua"
                             >
-                              ✎
+                              <Pencil size={16} strokeWidth={2.1} aria-hidden="true" />
                             </Link>
                             <button
                               type="button"
                               onClick={() => setProductToDelete(product)}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:border-red-400 hover:text-red-600"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-600"
                               aria-label="Xoa"
                             >
-                              ⋮
+                              <MoreVertical size={17} strokeWidth={2.1} aria-hidden="true" />
                             </button>
                           </div>
                         </td>
@@ -468,6 +582,30 @@ function AdminProducts() {
             <div className="px-5 py-14 text-center">
               <h3 className="text-sm font-semibold text-neutral-950">Khong co san pham phu hop</h3>
               <p className="mt-2 text-sm text-neutral-500">Thu doi bo loc hoac tao san pham moi.</p>
+            </div>
+          )}
+          {!isLoadingInitial && (
+            <div
+              ref={loadMoreRef}
+              className="flex flex-col items-center justify-center gap-3 border-t border-neutral-100 bg-white px-5 py-5"
+            >
+              {isLoadingMore ? (
+                <>
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-600" />
+                  <p className="text-xs font-semibold text-neutral-500">Dang tai them san pham...</p>
+                </>
+              ) : hasNext && nextCursor ? (
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  disabled={isLoading}
+                  className="h-10 rounded-xl border border-emerald-200 bg-emerald-50 px-5 text-sm font-bold text-emerald-700 transition-colors hover:border-emerald-400 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Tai them san pham
+                </button>
+              ) : products.length ? (
+                <p className="text-xs font-semibold text-neutral-400">Da tai het danh sach san pham.</p>
+              ) : null}
             </div>
           )}
         </div>

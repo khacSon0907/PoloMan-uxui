@@ -1,18 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  Boxes,
+  ChevronDown,
+  ExternalLink,
+  Image,
+  KeyRound,
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  Menu,
+  Package,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+  Tags,
+  UserRound,
+  Users,
+} from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
 import { tokenStorage } from '../../shared/api'
 
 const adminNavItems = [
-  { to: '/admin', label: 'Tong quan', icon: '⌂' },
-  { to: '/admin/categories', label: 'Danh muc', icon: '▤' },
-  { to: '/admin/products', label: 'San pham', icon: '▣' },
-  { to: '/admin/banners', label: 'Banner', icon: '▧' },
-  { to: '/admin/promotion-banners', label: 'Promotion', icon: '▱' },
-  { to: '/admin/orders', label: 'Don hang', icon: '⋈' },
-  { to: '/admin/users', label: 'Khach hang', icon: '♙' },
-  { to: '/admin/roles', label: 'Roles', icon: '♜' },
+  { to: '/admin', label: 'Tong quan', icon: LayoutDashboard },
+  { to: '/admin/categories', label: 'Danh muc', icon: Tags },
+  { to: '/admin/products', label: 'San pham', icon: Package },
+  { to: '/admin/banners', label: 'Banner', icon: Image },
+  { to: '/admin/promotion-banners', label: 'Promotion', icon: Megaphone },
+  { to: '/admin/orders', label: 'Don hang', icon: ShoppingBag },
+  { to: '/admin/users', label: 'Khach hang', icon: Users },
+  { to: '/admin/roles', label: 'Roles', icon: ShieldCheck },
 ]
 
 function getDisplayName(user) {
@@ -98,38 +116,42 @@ function AdminLayout() {
           >
             {sidebarCollapsed ? 'QL' : 'Quan ly'}
           </p>
-          {adminNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/admin'}
-              className={({ isActive }) =>
-                `group relative flex min-h-12 items-center rounded-2xl px-3 text-sm font-bold transition-all ${
-                  sidebarCollapsed ? 'justify-center' : 'gap-3'
-                } ${
-                  isActive
-                    ? 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100'
-                    : 'text-emerald-950/72 hover:bg-white hover:text-emerald-900 hover:shadow-sm'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base ${
-                      isActive
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-emerald-50 text-emerald-900/70 group-hover:bg-emerald-100'
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
-                  <span className={`flex-1 ${sidebarCollapsed ? 'hidden' : ''}`}>{item.label}</span>
-                  {isActive && !sidebarCollapsed && <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />}
-                </>
-              )}
-            </NavLink>
-          ))}
+          {adminNavItems.map((item) => {
+            const Icon = item.icon
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/admin'}
+                className={({ isActive }) =>
+                  `group relative flex min-h-12 items-center rounded-2xl px-3 text-sm font-bold transition-all ${
+                    sidebarCollapsed ? 'justify-center' : 'gap-3'
+                  } ${
+                    isActive
+                      ? 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100'
+                      : 'text-emerald-950/72 hover:bg-white hover:text-emerald-900 hover:shadow-sm'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                        isActive
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-emerald-50 text-emerald-900/70 group-hover:bg-emerald-100 group-hover:text-emerald-700'
+                      }`}
+                    >
+                      <Icon size={18} strokeWidth={2.1} aria-hidden="true" />
+                    </span>
+                    <span className={`flex-1 ${sidebarCollapsed ? 'hidden' : ''}`}>{item.label}</span>
+                    {isActive && !sidebarCollapsed && <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />}
+                  </>
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
 
         <div className={`${sidebarCollapsed ? 'hidden' : 'block'} border-t border-emerald-100 p-4`}>
@@ -141,16 +163,18 @@ function AdminLayout() {
             className="mt-3 flex h-12 items-center justify-between rounded-2xl border border-emerald-100 bg-white px-4 text-sm font-bold text-emerald-950 shadow-sm hover:border-emerald-300 hover:bg-emerald-50"
           >
             <span className="flex items-center gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">▣</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <Store size={16} strokeWidth={2.2} aria-hidden="true" />
+              </span>
               Xem website
             </span>
-            <span aria-hidden="true">↗</span>
+            <ExternalLink size={16} strokeWidth={2.1} aria-hidden="true" />
           </Link>
 
           <div className="mt-20 rounded-2xl border border-emerald-100 bg-white/85 p-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 bg-white text-lg">
-                ◎
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 bg-white text-emerald-700">
+                <Boxes size={21} strokeWidth={2} aria-hidden="true" />
               </span>
               <div>
                 <p className="text-sm font-black text-emerald-950">POLOMAN</p>
@@ -167,28 +191,13 @@ function AdminLayout() {
             <button
               type="button"
               onClick={() => setSidebarCollapsed((current) => !current)}
-              className="hidden h-11 w-11 items-center justify-center rounded-xl text-xl text-emerald-950 hover:bg-emerald-50 lg:flex"
+              className="hidden h-11 w-11 items-center justify-center rounded-xl text-emerald-950 hover:bg-emerald-50 lg:flex"
               aria-label={sidebarCollapsed ? 'Mo sidebar' : 'Thu gon sidebar'}
             >
-              ☰
+              <Menu size={22} strokeWidth={2} aria-hidden="true" />
             </button>
 
-            <div className="hidden">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-emerald-900/40">⌕</span>
-            </div>
-
             <div className="ml-auto flex items-center gap-4">
-              <button
-                type="button"
-                className="hidden"
-                aria-label="Thong bao"
-              >
-                ♧
-                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
-                  3
-                </span>
-              </button>
-
               <div ref={accountMenuRef} className="relative">
                 <button
                   type="button"
@@ -204,7 +213,14 @@ function AdminLayout() {
                     <p className="truncate text-sm font-black text-neutral-950">{getDisplayName(user)}</p>
                     <p className="mt-0.5 text-xs font-semibold text-neutral-500">admin</p>
                   </div>
-                  <span className="hidden text-lg text-neutral-500 sm:block">⌄</span>
+                  <ChevronDown
+                    size={17}
+                    strokeWidth={2.2}
+                    className={`hidden text-neutral-500 transition-transform sm:block ${
+                      accountMenuOpen ? 'rotate-180' : ''
+                    }`}
+                    aria-hidden="true"
+                  />
                 </button>
 
                 {accountMenuOpen && (
@@ -229,7 +245,9 @@ function AdminLayout() {
                         onClick={() => setAccountMenuOpen(false)}
                         className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-emerald-950/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                       >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">♙</span>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                          <UserRound size={17} strokeWidth={2.1} aria-hidden="true" />
+                        </span>
                         Tai khoan cua toi
                       </Link>
                       <Link
@@ -237,7 +255,9 @@ function AdminLayout() {
                         onClick={() => setAccountMenuOpen(false)}
                         className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-emerald-950/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                       >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">▣</span>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                          <KeyRound size={17} strokeWidth={2.1} aria-hidden="true" />
+                        </span>
                         Doi mat khau
                       </Link>
                       <Link
@@ -245,7 +265,9 @@ function AdminLayout() {
                         onClick={() => setAccountMenuOpen(false)}
                         className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-emerald-950/75 transition-colors hover:bg-emerald-50 hover:text-emerald-950"
                       >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">↗</span>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                          <ExternalLink size={17} strokeWidth={2.1} aria-hidden="true" />
+                        </span>
                         Xem website
                       </Link>
                       <button
@@ -254,7 +276,9 @@ function AdminLayout() {
                         disabled={isLoggingOut}
                         className="mt-1 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600">↪</span>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                          <LogOut size={17} strokeWidth={2.1} aria-hidden="true" />
+                        </span>
                         {isLoggingOut ? 'Dang dang xuat...' : 'Dang xuat'}
                       </button>
                     </div>
@@ -265,20 +289,25 @@ function AdminLayout() {
           </div>
 
           <nav className="scrollbar-hidden flex gap-2 overflow-x-auto border-t border-neutral-100 px-4 py-3 sm:px-6 lg:hidden">
-            {adminNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/admin'}
-                className={({ isActive }) =>
-                  `whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold ${
-                    isActive ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+            {adminNavItems.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/admin'}
+                  className={({ isActive }) =>
+                    `inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold ${
+                      isActive ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800'
+                    }`
+                  }
+                >
+                  <Icon size={16} strokeWidth={2.1} aria-hidden="true" />
+                  {item.label}
+                </NavLink>
+              )
+            })}
           </nav>
         </header>
 

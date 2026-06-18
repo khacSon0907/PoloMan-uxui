@@ -31,8 +31,19 @@ const fallbackHeroBanner = {
   linkUrl: "/products",
 };
 
+const HOME_PRODUCTS_LIMIT = 8;
+
 function getCategoryFallbackImage(index) {
   return categoryImages[index % categoryImages.length];
+}
+
+function getDiscountPercent(product) {
+  const price = Number(product?.price || 0);
+  const salePrice = Number(product?.salePrice || 0);
+
+  if (!price || !salePrice || salePrice >= price) return 0;
+
+  return Math.round(((price - salePrice) / price) * 100);
 }
 
 function Home() {
@@ -40,6 +51,11 @@ function Home() {
   const [categoryGroups, setCategoryGroups] = useState(fallbackCategories);
   const [heroBanner, setHeroBanner] = useState(fallbackHeroBanner);
   const [products, setProducts] = useState([]);
+  const [nextProductCursor, setNextProductCursor] = useState(null);
+  const [hasNextProducts, setHasNextProducts] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false);
+  const [productError, setProductError] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
 
   usePageMeta({
@@ -55,8 +71,7 @@ function Home() {
     Promise.allSettled([
       categoryApi.list(),
       bannerApi.listActive(),
-      productApi.getAll(),
-    ]).then(([categoryResult, bannerResult, productResult]) => {
+    ]).then(([categoryResult, bannerResult]) => {
       if (!isMounted) return;
 
       if (
@@ -99,15 +114,6 @@ function Home() {
           setBannerImageUrl(activeBanner.imageUrl);
         }
       }
-
-      if (
-        productResult.status === "fulfilled" &&
-        Array.isArray(productResult.value)
-      ) {
-        setProducts(
-          productResult.value.filter((product) => product.active !== false),
-        );
-      }
     });
 
     return () => {
@@ -115,7 +121,74 @@ function Home() {
     };
   }, []);
 
-  const featuredProducts = products.slice(0, 4);
+  useEffect(() => {
+    let isMounted = true;
+
+    productApi
+      .getAdminProductsByCursor({ limit: HOME_PRODUCTS_LIMIT })
+      .then((page) => {
+        if (!isMounted) return;
+
+        setProducts((page.items || []).filter((product) => product.active !== false));
+        setNextProductCursor(page.nextCursor || null);
+        setHasNextProducts(Boolean(page.hasNext && page.nextCursor));
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+
+        setProductError(
+          error?.response?.status === 403
+            ? "Tai khoan khong co quyen tai danh sach san pham."
+            : "Khong the tai san pham moi.",
+        );
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingProducts(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const featuredProducts = products;
+
+  const handleLoadMoreProducts = async () => {
+    if (!hasNextProducts || !nextProductCursor || isLoadingMoreProducts) return;
+
+    setIsLoadingMoreProducts(true);
+    setProductError("");
+
+    try {
+      const page = await productApi.getAdminProductsByCursor({
+        cursor: nextProductCursor,
+        limit: HOME_PRODUCTS_LIMIT,
+      });
+      const newProducts = (page.items || []).filter((product) => product.active !== false);
+
+      setProducts((current) => {
+        const seen = new Set(current.map((product) => String(getProductId(product))));
+        const nextItems = newProducts.filter((product) => {
+          const productId = String(getProductId(product));
+          if (!productId || seen.has(productId)) return false;
+          seen.add(productId);
+          return true;
+        });
+
+        return [...current, ...nextItems];
+      });
+      setNextProductCursor(page.nextCursor || null);
+      setHasNextProducts(Boolean(page.hasNext && page.nextCursor));
+    } catch (error) {
+      setProductError(
+        error?.response?.status === 403
+          ? "Tai khoan khong co quyen tai danh sach san pham."
+          : "Khong the tai them san pham.",
+      );
+    } finally {
+      setIsLoadingMoreProducts(false);
+    }
+  };
 
   const scrollCategoryGroup = (groupKey, direction) => {
     const scroller = categoryScrollerRefs.current[groupKey];
@@ -356,10 +429,16 @@ function Home() {
           </Link>
         </div>
 
-        {featuredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-            {featuredProducts.map((prod, index) => {
+        {isLoadingProducts ? (
+          <div className="flex min-h-72 items-center justify-center rounded-lg border border-emerald-100 bg-white">
+            <div className="h-9 w-9 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-700" />
+          </div>
+        ) : featuredProducts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+              {featuredProducts.map((prod, index) => {
               const imageUrl = getProductImage(prod);
+              const discountPercent = getDiscountPercent(prod);
 
               return (
                 <article
@@ -368,13 +447,18 @@ function Home() {
                 >
                   <Link
                     to={`/products/${getProductSlug(prod)}`}
-                    className="relative block aspect-[4/5] overflow-hidden bg-emerald-50 sm:h-64 sm:aspect-auto"
+                    className="relative block aspect-square overflow-hidden bg-neutral-50"
                   >
+                    {discountPercent > 0 && (
+                      <span className="absolute left-3 top-3 z-10 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 shadow-sm">
+                        -{discountPercent}%
+                      </span>
+                    )}
                     {imageUrl ? (
                       <img
                         src={imageUrl}
                         alt={prod.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-neutral-400">
@@ -431,15 +515,33 @@ function Home() {
                   </div>
                 </article>
               );
-            })}
-          </div>
+              })}
+            </div>
+            {productError && (
+              <p className="text-center text-sm font-semibold text-red-600">{productError}</p>
+            )}
+            {hasNextProducts && nextProductCursor && (
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleLoadMoreProducts}
+                  disabled={isLoadingMoreProducts}
+                  className="h-11 rounded-md border border-emerald-200 bg-white px-6 text-xs font-bold uppercase tracking-wider text-emerald-800 transition-colors hover:border-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isLoadingMoreProducts ? "Dang tai..." : "Tai them san pham"}
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 p-10 text-center">
             <h3 className="text-sm font-bold text-neutral-900">
-              Chua co san pham hien thi
+              {productError || "Chua co san pham hien thi"}
             </h3>
             <p className="mt-2 text-sm text-neutral-500">
-              Hay tao san pham active trong trang admin.
+              {productError
+                ? "Vui long thu lai sau."
+                : "Hay tao san pham active trong trang admin."}
             </p>
           </div>
         )}

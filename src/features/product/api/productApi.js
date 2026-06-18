@@ -9,6 +9,15 @@ function normalizeProductList(data) {
   return []
 }
 
+function normalizeCursorPage(data, fallbackLimit) {
+  return {
+    items: normalizeProductList(data),
+    nextCursor: data?.nextCursor || null,
+    hasNext: Boolean(data?.hasNext && data?.nextCursor),
+    limit: Number(data?.limit || fallbackLimit || 20),
+  }
+}
+
 export const productApi = {
   async list() {
     const response = await publicHttp.get('/products')
@@ -27,6 +36,15 @@ export const productApi = {
   async getByCategoryId(categoryId) {
     const response = await publicHttp.get(`/products/category/${categoryId}`)
     return normalizeProductList(getApiData(response))
+  },
+
+  async getAdminProductsByCursor({ cursor, limit = 20 } = {}) {
+    const params = { limit }
+
+    if (cursor) params.cursor = cursor
+
+    const response = await http.get('/products/admin/cursor', { params })
+    return normalizeCursorPage(getApiData(response), limit)
   },
 
   async create(payload) {

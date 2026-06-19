@@ -11,7 +11,6 @@ function normalizeCreateOrderPayload(payload) {
     receiverPhone: payload?.receiverPhone || '',
     receiverAddress: payload?.receiverAddress || '',
     items: Array.isArray(payload?.items) ? payload.items : [],
-    shippingFee: Number(payload?.shippingFee || 0),
     discountAmount: Number(payload?.discountAmount || 0),
     paymentMethod: payload?.paymentMethod || 'COD',
     note: payload?.note || '',

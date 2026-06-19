@@ -14,6 +14,7 @@ import AdminProductCreate from "../../pages/admin/AdminProductCreate";
 import AdminProductDetail from "../../pages/admin/AdminProductDetail";
 import AdminProducts from "../../pages/admin/AdminProducts";
 import AdminRoles from "../../pages/admin/AdminRoles";
+import AdminShippingRules from "../../pages/admin/AdminShippingRules";
 import AdminUsers from "../../pages/admin/AdminUsers";
 import Home from "../../pages/Home";
 
@@ -152,6 +153,10 @@ export const router = createBrowserRouter([
           {
             path: "orders/:orderId",
             element: <AdminOrderDetail />,
+          },
+          {
+            path: "shipping-rules",
+            element: <AdminShippingRules />,
           },
           {
             path: "users",

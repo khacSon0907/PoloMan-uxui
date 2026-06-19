@@ -40,6 +40,17 @@ import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 import { playAddToCartEffect } from '../shared/utils/cartMotion'
 
+function clampQuantity(value, maxQuantity) {
+  const normalizedMax = Math.max(1, Number(maxQuantity || 1))
+  const nextValue = Math.floor(Number(value || 1))
+
+  if (!Number.isFinite(nextValue) || nextValue < 1) return 1
+
+  return Math.min(nextValue, normalizedMax)
+}
+
+const BUY_NOW_STORAGE_KEY = 'poloman:buy-now-checkout'
+
 function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -71,6 +82,9 @@ function ProductDetail() {
   const sizes = useMemo(() => getProductSizes(product, selectedColor), [product, selectedColor])
   const selectedSizeData = sizes.find((size) => getProductSizeName(size) === selectedSize)
   const selectedStock = Number(selectedSizeData?.quantity || 0)
+  const productStock = getProductStock(product)
+  const quantityStockLimit = sizes.length ? (selectedSize ? selectedStock : productStock) : productStock
+  const maxQuantity = Math.max(1, Number(quantityStockLimit || 1))
   const mainImage = imageUrls[selectedImageIndex] || getProductImage(product, selectedColor)
   const productName = getProductName(product)
   const productCategoryId = product?.category?.id || product?.category?._id || product?.categoryId || ''
@@ -192,6 +206,12 @@ function ProductDetail() {
     reviewImagesRef.current = reviewImages
   }, [reviewImages])
 
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      setQuantity((current) => clampQuantity(current, maxQuantity))
+    })
+  }, [maxQuantity])
+
   useEffect(
     () => () => {
       reviewImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
@@ -199,16 +219,29 @@ function ProductDetail() {
     [],
   )
 
-  const handleAddToCart = async () => {
-    if (!product) return false
+  const buildValidatedCartItem = () => {
+    if (!product) return null
 
     if (sizes.length && !selectedSize) {
       setSuccessMessage('')
       setErrorMessage('Vui long chon kich thuoc.')
-      return false
+      return null
     }
 
-    const cartItem = {
+    if (quantityStockLimit <= 0) {
+      setSuccessMessage('')
+      setErrorMessage('San pham da het hang.')
+      return null
+    }
+
+    if (quantity > quantityStockLimit) {
+      setSuccessMessage('')
+      setErrorMessage(`So luong khong duoc vuot qua ton kho (${quantityStockLimit}).`)
+      setQuantity(clampQuantity(quantity, quantityStockLimit))
+      return null
+    }
+
+    return {
       productId: getProductId(product),
       slug: getProductSlug(product),
       name: productName,
@@ -221,6 +254,12 @@ function ProductDetail() {
       size: selectedSize || getProductSizeName(selectedSizeData),
       quantity,
     }
+  }
+
+  const handleAddToCart = async () => {
+    const cartItem = buildValidatedCartItem()
+
+    if (!cartItem) return false
 
     const userId = getUserId(tokenStorage.getUser())
 
@@ -254,10 +293,19 @@ function ProductDetail() {
     }
   }
 
-  const handleBuyNow = async () => {
-    if (await handleAddToCart()) {
-      navigate('/cart')
-    }
+  const handleBuyNow = () => {
+    const cartItem = buildValidatedCartItem()
+
+    if (!cartItem) return
+
+    sessionStorage.setItem(
+      BUY_NOW_STORAGE_KEY,
+      JSON.stringify({
+        item: cartItem,
+      }),
+    )
+    setErrorMessage('')
+    navigate('/cart?mode=buy-now')
   }
 
   const handleToggleFavorite = () => {
@@ -600,9 +648,7 @@ function ProductDetail() {
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-emerald-700">
                 Moi
               </span>
-              <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-orange-600">
-                Best seller
-              </span>
+           
             </div>
             <h1 className="text-2xl font-black leading-tight text-neutral-950 sm:text-3xl lg:text-[32px]">{productName}</h1>
             <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -728,16 +774,27 @@ function ProductDetail() {
             <div className="flex h-12 items-center justify-between rounded-lg border border-neutral-200 bg-white">
               <button
                 type="button"
-                onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                className="h-full px-5 text-xl font-black"
+                onClick={() => setQuantity((current) => clampQuantity(Number(current || 1) - 1, maxQuantity))}
+                disabled={quantity <= 1}
+                className="h-full px-5 text-xl font-black disabled:cursor-not-allowed disabled:opacity-35"
               >
                 -
               </button>
-              <span className="text-sm font-black">{quantity}</span>
+              <input
+                type="number"
+                min="1"
+                max={maxQuantity}
+                value={quantity}
+                onChange={(event) => setQuantity(clampQuantity(event.target.value, maxQuantity))}
+                onBlur={(event) => setQuantity(clampQuantity(event.target.value, maxQuantity))}
+                className="h-full min-w-10 flex-1 border-x border-neutral-200 bg-transparent px-2 text-center text-sm font-black outline-none"
+                aria-label="So luong san pham"
+              />
               <button
                 type="button"
-                onClick={() => setQuantity((current) => current + 1)}
-                className="h-full px-5 text-xl font-black"
+                onClick={() => setQuantity((current) => clampQuantity(Number(current || 1) + 1, maxQuantity))}
+                disabled={quantity >= maxQuantity || quantityStockLimit <= 0}
+                className="h-full px-5 text-xl font-black disabled:cursor-not-allowed disabled:opacity-35"
               >
                 +
               </button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import {
   cartApi,
@@ -11,6 +11,7 @@ import {
 } from '../features/product'
 import { orderApi } from '../features/order'
 import { addressApi, findLocationOption, userApi, useLocationOptions } from '../features/user'
+import { calculateShippingFee, getFreeShippingProgress, shippingRuleApi } from '../features/shippingRule'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
@@ -38,18 +39,14 @@ const paymentMethods = [
     description: 'Tra tien mat sau khi nhan va kiem tra hang.',
   },
   {
-    value: 'MOMO',
-    label: 'Momo',
-    title: 'Vi Momo',
-    description: 'Dat don truoc, shop se gui thong tin thanh toan Momo.',
-  },
-  {
     value: 'PAYOS',
-    label: 'PayOS',
-    title: 'Chuyen khoan QR',
+    label: 'Online',
+    title: 'Thanh toan online',
     description: 'Tao ma QR PayOS de chuyen khoan va xac nhan thanh toan tu dong.',
   },
 ]
+
+const BUY_NOW_STORAGE_KEY = 'poloman:buy-now-checkout'
 
 function getDisplayName(user) {
   return user?.fullName || user?.name || user?.username || user?.email || ''
@@ -261,15 +258,42 @@ function getCreateOrderItems(items) {
   }))
 }
 
+function getCartLineKey(item) {
+  return [item?.productId || '', item?.colorId || item?.colorName || '', item?.sizeId || item?.size || ''].join('|')
+}
+
+function readBuyNowCheckoutItem() {
+  try {
+    const raw = sessionStorage.getItem(BUY_NOW_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    const item = parsed?.item
+
+    if (!item?.productId) return null
+
+    return {
+      ...item,
+      quantity: Math.max(1, Number(item.quantity || 1)),
+    }
+  } catch {
+    return null
+  }
+}
+
 function Cart() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const isBuyNowCheckout = new URLSearchParams(location.search).get('mode') === 'buy-now'
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
-  const [items, setItems] = useState(() => cartStorage.getItems())
+  const [items, setItems] = useState(() => (isBuyNowCheckout ? [readBuyNowCheckoutItem()].filter(Boolean) : cartStorage.getItems()))
   const [checkoutForm, setCheckoutForm] = useState(() => getCheckoutForm(tokenStorage.getUser()))
   const [paymentMethod, setPaymentMethod] = useState('COD')
   const [profileMessage, setProfileMessage] = useState('')
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const [shippingRule, setShippingRule] = useState(null)
+  const [isLoadingShippingRule, setIsLoadingShippingRule] = useState(true)
+  const [pendingRemoveItem, setPendingRemoveItem] = useState(null)
+  const [isRemovingItem, setIsRemovingItem] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [orderSuccess, setOrderSuccess] = useState(null)
   const [addresses, setAddresses] = useState([])
@@ -297,6 +321,12 @@ function Cart() {
 
   useEffect(() => {
     const syncCart = async () => {
+      if (isBuyNowCheckout) {
+        const buyNowItem = readBuyNowCheckoutItem()
+        setItems(buyNowItem ? [buyNowItem] : [])
+        return
+      }
+
       if (isAuthInitializing || (isAuthenticated && !userId)) {
         return
       }
@@ -324,7 +354,7 @@ function Cart() {
       window.removeEventListener(CART_UPDATED_EVENT, syncCart)
       window.removeEventListener('storage', syncCart)
     }
-  }, [isAuthInitializing, isAuthenticated, userId])
+  }, [isAuthInitializing, isAuthenticated, isBuyNowCheckout, userId])
 
   useEffect(() => {
     let isMounted = true
@@ -377,6 +407,26 @@ function Cart() {
       isMounted = false
     }
   }, [isAuthInitializing, isAuthenticated])
+
+  useEffect(() => {
+    let isMounted = true
+
+    shippingRuleApi
+      .getActive()
+      .then((rule) => {
+        if (isMounted) setShippingRule(rule)
+      })
+      .catch(() => {
+        if (isMounted) setShippingRule(null)
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingShippingRule(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -537,7 +587,8 @@ function Cart() {
     () => items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
     [items],
   )
-  const shippingFee = subtotal >= 399000 || subtotal === 0 ? 0 : 30000
+  const shippingFee = calculateShippingFee(shippingRule, subtotal)
+  const freeShippingGap = getFreeShippingProgress(shippingRule, subtotal)
   const discount = subtotal >= 799000 ? 50000 : subtotal >= 499000 ? 20000 : 0
   const total = Math.max(0, subtotal + shippingFee - discount)
 
@@ -546,6 +597,13 @@ function Cart() {
     const nextQuantity = Math.max(1, Number(quantity || 1))
 
     if (!item) return
+
+    if (isBuyNowCheckout) {
+      const nextItem = { ...item, quantity: nextQuantity }
+      sessionStorage.setItem(BUY_NOW_STORAGE_KEY, JSON.stringify({ item: nextItem }))
+      setItems([nextItem])
+      return
+    }
 
     if (!userId) {
       cartStorage.updateQuantity(index, nextQuantity)
@@ -567,28 +625,96 @@ function Cart() {
     }
   }
 
-  const handleRemove = async (index) => {
+  const handleRemove = (index) => {
     const item = items[index]
 
     if (!item) return
 
+    if (isBuyNowCheckout) {
+      setPendingRemoveItem({ item, index })
+      setErrorMessage('')
+      return
+    }
+
+    setPendingRemoveItem({ item, index })
+    setErrorMessage('')
+  }
+
+  const closeRemoveConfirm = () => {
+    if (isRemovingItem) return
+    setPendingRemoveItem(null)
+  }
+
+  const handleConfirmRemove = async () => {
+    const removeTarget = pendingRemoveItem
+    const item = removeTarget?.item
+    const index = removeTarget?.index
+
+    if (!item || index === undefined) return
+
+    setIsRemovingItem(true)
+    setErrorMessage('')
+
+    if (isBuyNowCheckout) {
+      sessionStorage.removeItem(BUY_NOW_STORAGE_KEY)
+      setItems([])
+      setPendingRemoveItem(null)
+      setIsRemovingItem(false)
+      return
+    }
+
     if (!userId) {
       cartStorage.removeItem(index)
       setItems(cartStorage.getItems())
+      setPendingRemoveItem(null)
+      setIsRemovingItem(false)
       return
     }
 
     try {
-      const cart = await cartApi.removeItem(userId, item.productId)
-      setItems(normalizeCartItems(cart))
+      const expectedRemainingItems = items.filter((_, itemIndex) => itemIndex !== index)
+      const cart = await cartApi.removeItem(userId, item.productId, {
+        cartItemId: item.cartItemId,
+        colorId: item.colorId,
+        sizeId: item.sizeId,
+      })
+      let nextItems = normalizeCartItems(cart)
+      const nextItemKeys = new Set(nextItems.map(getCartLineKey))
+      const missingItems = expectedRemainingItems.filter((remainingItem) => !nextItemKeys.has(getCartLineKey(remainingItem)))
+
+      if (missingItems.length) {
+        for (const missingItem of missingItems) {
+          const recoveredCart = await cartApi.addItem(userId, {
+            productId: missingItem.productId,
+            productName: missingItem.name,
+            productImage: missingItem.image,
+            colorId: missingItem.colorId,
+            colorName: missingItem.colorName,
+            sizeId: missingItem.sizeId,
+            sizeName: missingItem.size,
+            quantity: missingItem.quantity,
+          })
+          nextItems = normalizeCartItems(recoveredCart)
+        }
+      }
+
+      setItems(nextItems)
+      setPendingRemoveItem(null)
       setErrorMessage('')
     } catch (error) {
       setErrorMessage(getApiMessage(error, 'Khong the xoa san pham khoi gio hang.'))
+    } finally {
+      setIsRemovingItem(false)
     }
   }
 
   const handleCheckout = async () => {
     if (!items.length) return
+
+    if (isLoadingShippingRule) {
+      setErrorMessage('Dang tinh phi van chuyen, vui long thu lai sau giay lat.')
+      return
+    }
 
     const selectedPaymentMethod = paymentMethods.find((method) => method.value === paymentMethod) || paymentMethods[0]
     const isGuestCheckout = !userId
@@ -615,7 +741,6 @@ function Cart() {
           receiverPhone: checkoutForm.phoneNumber.trim(),
           receiverAddress: getReceiverAddress(checkoutForm),
           items: getCreateOrderItems(items),
-          shippingFee,
           discountAmount: discount,
           paymentMethod: selectedPaymentMethod.value,
           note: checkoutForm.note.trim(),
@@ -623,7 +748,11 @@ function Cart() {
 
         const paymentUrl = getPaymentUrl(createdOrder)
 
-        cartStorage.clear()
+        if (isBuyNowCheckout) {
+          sessionStorage.removeItem(BUY_NOW_STORAGE_KEY)
+        } else {
+          cartStorage.clear()
+        }
         setItems([])
 
         if (selectedPaymentMethod.value === 'PAYOS' && hasPayosPayment(createdOrder)) {
@@ -690,14 +819,17 @@ function Cart() {
         receiverPhone: checkoutForm.phoneNumber.trim(),
         receiverAddress: getReceiverAddress(checkoutForm),
         items: getCreateOrderItems(items),
-        shippingFee,
         discountAmount: discount,
         paymentMethod: selectedPaymentMethod.value,
         note: checkoutForm.note.trim(),
       })
 
-      await cartApi.clearCart(userId).catch(() => null)
-      cartStorage.clear()
+      if (isBuyNowCheckout) {
+        sessionStorage.removeItem(BUY_NOW_STORAGE_KEY)
+      } else {
+        await cartApi.clearCart(userId).catch(() => null)
+        cartStorage.clear()
+      }
       setItems([])
 
       if (selectedPaymentMethod.value === 'PAYOS' && hasPayosPayment(createdOrder)) {
@@ -932,13 +1064,21 @@ function Cart() {
 
         <aside className="space-y-5">
           <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
-            <h2 className="text-2xl font-black text-emerald-950">Gio hang</h2>
+            <h2 className="text-2xl font-black text-emerald-950">
+              {isBuyNowCheckout ? 'Thanh toan ngay' : 'Gio hang'}
+            </h2>
             <span className="text-sm font-semibold text-emerald-900/55">{items.length} san pham</span>
           </div>
 
-          {subtotal > 0 && subtotal < 399000 && (
+          {isBuyNowCheckout && items.length > 0 && (
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+              Ban dang thanh toan rieng san pham nay, gio hang hien co se duoc giu nguyen.
+            </div>
+          )}
+
+          {freeShippingGap > 0 && (
             <div className="rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white shadow-sm">
-              Mua them {formatCurrency(399000 - subtotal)} de duoc freeship
+              Mua them {formatCurrency(freeShippingGap)} de duoc mien phi van chuyen.
             </div>
           )}
 
@@ -1018,8 +1158,14 @@ function Cart() {
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-2xl font-black text-emerald-900">
                 0
               </div>
-              <h3 className="mt-5 text-lg font-black text-emerald-950">Gio hang dang trong</h3>
-              <p className="mt-2 text-sm text-emerald-900/60">Ve trang san pham de chon mon hang ban thich.</p>
+              <h3 className="mt-5 text-lg font-black text-emerald-950">
+                {isBuyNowCheckout ? 'Chua co san pham mua ngay' : 'Gio hang dang trong'}
+              </h3>
+              <p className="mt-2 text-sm text-emerald-900/60">
+                {isBuyNowCheckout
+                  ? 'Quay lai trang san pham va bam Mua ngay de thanh toan.'
+                  : 'Ve trang san pham de chon mon hang ban thich.'}
+              </p>
               <Link
                 to="/products"
                 className="mt-5 inline-flex h-11 items-center rounded-lg bg-emerald-800 px-5 text-sm font-bold text-white hover:bg-emerald-900"
@@ -1037,8 +1183,21 @@ function Cart() {
               </div>
               <div className="flex justify-between text-emerald-900/65">
                 <span>Phi van chuyen</span>
-                <span className="font-bold text-emerald-950">{shippingFee ? formatCurrency(shippingFee) : '0d'}</span>
+                <span className="font-bold text-emerald-950">
+                  {isLoadingShippingRule
+                    ? 'Dang tinh...'
+                    : shippingFee
+                      ? formatCurrency(shippingFee)
+                      : 'Mien phi van chuyen'}
+                </span>
               </div>
+              {!shippingFee && !isLoadingShippingRule ? (
+                <p className="text-xs font-semibold text-emerald-700">Don hang duoc mien phi van chuyen.</p>
+              ) : freeShippingGap > 0 ? (
+                <p className="text-xs font-semibold text-emerald-700">
+                  Mua them {formatCurrency(freeShippingGap)} de duoc mien phi van chuyen.
+                </p>
+              ) : null}
               <div className="flex justify-between text-emerald-900/65">
                 <span>Giam gia</span>
                 <span className="font-bold text-emerald-950">-{formatCurrency(discount)}</span>
@@ -1051,14 +1210,75 @@ function Cart() {
             <button
               type="button"
               onClick={handleCheckout}
-              disabled={!items.length || isCheckingOut}
+              disabled={!items.length || isCheckingOut || isLoadingShippingRule}
               className="mt-5 h-12 w-full rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isCheckingOut ? 'Dang tao don...' : paymentMethod === 'PAYOS' ? 'Thanh toan QR' : 'Dat hang'}
+              {isCheckingOut
+                ? 'Dang tao don...'
+                : isLoadingShippingRule
+                  ? 'Dang tinh phi ship...'
+                  : paymentMethod === 'PAYOS'
+                    ? 'Thanh toan QR'
+                    : 'Dat hang'}
             </button>
           </div>
         </aside>
       </div>
+
+      {pendingRemoveItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/35 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-100 bg-white p-6 shadow-[0_24px_80px_rgba(2,44,34,0.22)]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">Xac nhan xoa</p>
+            <h2 className="mt-2 text-2xl font-black text-emerald-950">Ban muon xoa san pham nay?</h2>
+            <div className="mt-4 flex gap-4 rounded-2xl bg-emerald-50/70 p-3">
+              <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
+                {pendingRemoveItem.item.image ? (
+                  <img
+                    src={pendingRemoveItem.item.image}
+                    alt={pendingRemoveItem.item.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-neutral-400">
+                    No image
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="line-clamp-2 text-sm font-black text-emerald-950">{pendingRemoveItem.item.name}</p>
+                <p className="mt-1 text-xs font-semibold text-emerald-900/55">
+                  {pendingRemoveItem.item.colorName ? `Mau: ${pendingRemoveItem.item.colorName}` : 'Mau: -'} /{' '}
+                  {pendingRemoveItem.item.size ? `Size: ${pendingRemoveItem.item.size}` : 'Size: -'}
+                </p>
+                <p className="mt-2 text-sm font-black text-emerald-800">
+                  {formatCurrency(Number(pendingRemoveItem.item.price || 0) * Number(pendingRemoveItem.item.quantity || 0))}
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-neutral-600">
+              Neu ban van con phan van, hay giu san pham lai trong gio hang de xem tiep truoc khi thanh toan.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={closeRemoveConfirm}
+                disabled={isRemovingItem}
+                className="h-11 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-black uppercase tracking-[0.12em] text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Giu lai
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemove}
+                disabled={isRemovingItem}
+                className="h-11 rounded-lg bg-red-600 px-4 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isRemovingItem ? 'Dang xoa...' : 'Xoa san pham'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

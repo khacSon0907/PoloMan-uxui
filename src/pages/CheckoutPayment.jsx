@@ -146,7 +146,6 @@ function CheckoutPayment() {
         receiverPhone: order.receiverPhone,
         receiverAddress: order.receiverAddress,
         items: getCreateOrderItems(items),
-        shippingFee: order.shippingFee,
         discountAmount: order.discountAmount,
         paymentMethod: 'COD',
         note: order.note,

@@ -1,4 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Camera,
+  CreditCard,
+  Edit3,
+  Headphones,
+  Heart,
+  Home,
+  KeyRound,
+  LogOut,
+  Mail,
+  MapPin,
+  Package,
+  Phone,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 
 import { addressApi, userApi } from '../features/user'
@@ -6,7 +22,7 @@ import { getApiMessage, tokenStorage } from '../shared/api'
 import { uploadImageToCloudinary } from '../shared/services/cloudinaryUpload'
 
 function getDisplayName(user) {
-  return user?.username || user?.fullName || user?.name || user?.email || 'Tài khoản'
+  return user?.username || user?.fullName || user?.name || user?.email || 'Tai khoan'
 }
 
 function getInitial(user) {
@@ -35,14 +51,23 @@ function getAddressName(address, key) {
 
 function formatFullAddress(address) {
   return [
+    address?.streetAddress,
     getAddressName(address, 'ward'),
     getAddressName(address, 'district'),
     getAddressName(address, 'province'),
-    address?.streetAddress,
   ]
     .filter(Boolean)
     .join(', ')
 }
+
+const sidebarItems = [
+  { label: 'Thong tin tai khoan', icon: UserRound, active: true, to: '/account' },
+  { label: 'Don hang cua toi', icon: Package, to: '/account/orders' },
+  { label: 'So dia chi', icon: MapPin, to: '/account/addresses/new' },
+  { label: 'Phuong thuc thanh toan', icon: CreditCard, to: '/account' },
+  { label: 'Doi mat khau', icon: KeyRound, to: '/change-password' },
+  { label: 'Yeu thich', icon: Heart, to: '/favorites' },
+]
 
 function Account() {
   const avatarInputRef = useRef(null)
@@ -64,10 +89,10 @@ function Account() {
 
   const profileFields = useMemo(
     () => [
-      { label: 'Tên hiển thị', value: getDisplayName(user) },
-      { label: 'Email', value: user?.email || 'Chưa cập nhật' },
-      { label: 'Số điện thoại', value: user?.phoneNumber || 'Chưa cập nhật' },
-      { label: 'Mã tài khoản', value: user?.id || 'Chưa cập nhật' },
+      { label: 'Ten hien thi', value: getDisplayName(user), icon: UserRound },
+      { label: 'Email', value: user?.email || 'Chua cap nhat', icon: Mail },
+      { label: 'So dien thoai', value: user?.phoneNumber || 'Chua cap nhat', icon: Phone },
+      { label: 'Ma tai khoan', value: user?.id || user?.userId || 'Chua cap nhat', icon: KeyRound },
     ],
     [user],
   )
@@ -80,9 +105,7 @@ function Account() {
   useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      setProfileForm(getProfileForm(user))
-    })
+    Promise.resolve().then(() => setProfileForm(getProfileForm(user)))
   }, [user])
 
   useEffect(() => {
@@ -117,7 +140,7 @@ function Account() {
         if (nextDefaultAddress) tokenStorage.setUser({ ...tokenStorage.getUser(), address: nextDefaultAddress })
       })
       .catch((error) => {
-        if (isMounted) setAddressError(getApiMessage(error, 'Không thể tải danh sách địa chỉ.'))
+        if (isMounted) setAddressError(getApiMessage(error, 'Khong the tai danh sach dia chi.'))
       })
       .finally(() => {
         if (isMounted) setIsLoadingAddresses(false)
@@ -149,7 +172,7 @@ function Account() {
     }
 
     if (!payload.username) {
-      setProfileError('Vui lòng nhập tên hiển thị.')
+      setProfileError('Vui long nhap ten hien thi.')
       setProfileMessage('')
       return
     }
@@ -164,7 +187,7 @@ function Account() {
       if (avatarFile) {
         const uploadResult = await uploadImageToCloudinary(avatarFile, 'USER_AVATAR')
         avatarUrl = uploadResult.secure_url || uploadResult.url
-        if (!avatarUrl) throw new Error('Cloudinary không trả về link ảnh')
+        if (!avatarUrl) throw new Error('Cloudinary khong tra ve link anh')
       }
 
       const finalPayload = { ...payload, avatarUrl }
@@ -181,9 +204,9 @@ function Account() {
       })
       resetAvatarPreview()
       setIsEditingProfile(false)
-      setProfileMessage('Cập nhật thông tin cá nhân thành công.')
+      setProfileMessage('Cap nhat thong tin ca nhan thanh cong.')
     } catch (error) {
-      setProfileError(getApiMessage(error, 'Cập nhật thông tin cá nhân thất bại.'))
+      setProfileError(getApiMessage(error, 'Cap nhat thong tin ca nhan that bai.'))
     } finally {
       setIsSavingProfile(false)
     }
@@ -199,7 +222,7 @@ function Account() {
 
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setProfileError('Vui lòng chọn file ảnh.')
+      setProfileError('Vui long chon file anh.')
       setProfileMessage('')
       return
     }
@@ -209,19 +232,18 @@ function Account() {
     setAvatarPreviewUrl(URL.createObjectURL(file))
     setIsEditingProfile(true)
     setProfileError('')
-    setProfileMessage('Ảnh mới đang được xem trước. Bấm lưu thay đổi để cập nhật.')
+    setProfileMessage('Anh moi dang duoc xem truoc. Bam luu thay doi de cap nhat.')
   }
 
   const handleDeleteAddress = async (addressId) => {
     if (!userId || !addressId) return
-    if (!window.confirm('Bạn có chắc muốn xóa địa chỉ này?')) return
+    if (!window.confirm('Ban co chac muon xoa dia chi nay?')) return
 
     setDeletingAddressId(addressId)
     setAddressError('')
 
     try {
       await addressApi.deleteAddress(userId, addressId)
-
       const nextAddresses = await addressApi.getAddresses(userId).catch(() =>
         addresses.filter((address) => address?.id !== addressId),
       )
@@ -230,7 +252,7 @@ function Account() {
       setAddresses(nextAddresses)
       tokenStorage.setUser({ ...tokenStorage.getUser(), address: nextDefaultAddress })
     } catch (error) {
-      setAddressError(getApiMessage(error, 'Không thể xóa địa chỉ.'))
+      setAddressError(getApiMessage(error, 'Khong the xoa dia chi.'))
     } finally {
       setDeletingAddressId('')
     }
@@ -241,205 +263,276 @@ function Account() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_12px_40px_rgba(20,83,45,0.08)] sm:p-6">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-            <button
-              type="button"
-              onClick={handleAvatarClick}
-              disabled={isSavingProfile}
-              className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-semibold text-emerald-700 shadow-sm hover:border-emerald-500 disabled:cursor-wait disabled:opacity-70 sm:h-24 sm:w-24 sm:text-3xl"
-              aria-label="Chọn ảnh đại diện"
-              title="Chọn ảnh đại diện"
-            >
-              {displayedAvatarUrl ? <img src={displayedAvatarUrl} alt="" className="h-full w-full object-cover" /> : getInitial(user)}
-              {isSavingProfile && <span className="absolute inset-0 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />}
-            </button>
+    <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <aside className="rounded-2xl border border-neutral-100 bg-white shadow-[0_18px_50px_rgba(2,44,34,0.06)]">
+        <div className="border-b border-neutral-100 p-6">
+          <h2 className="text-lg font-black uppercase tracking-[0.08em] text-emerald-900">Tai khoan cua toi</h2>
+          <p className="mt-2 text-sm text-neutral-500">Quan ly thong tin va don hang</p>
+        </div>
+        <nav className="p-3">
+          {sidebarItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                className={`flex items-center gap-3 rounded-xl px-4 py-4 text-sm font-bold transition-colors ${
+                  item.active ? 'bg-emerald-50 text-emerald-900' : 'text-neutral-600 hover:bg-neutral-50 hover:text-emerald-900'
+                }`}
+              >
+                <Icon className="h-5 w-5" strokeWidth={1.8} />
+                {item.label}
+              </Link>
+            )
+          })}
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-4 text-left text-sm font-bold text-neutral-600 hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut className="h-5 w-5" strokeWidth={1.8} />
+            Dang xuat
+          </button>
+        </nav>
+        <div className="m-6 rounded-2xl bg-emerald-50 p-5 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-800 text-white">
+            <Headphones className="h-7 w-7" />
+          </div>
+          <p className="mt-4 font-black text-emerald-950">Can ho tro?</p>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">Doi ngu Poloman luon san sang ho tro ban 24/7.</p>
+          <button className="mt-4 h-10 w-full rounded-lg border border-emerald-200 bg-white text-sm font-black text-emerald-800 hover:bg-emerald-50">
+            Lien he ngay
+          </button>
+        </div>
+      </aside>
 
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500">Tài khoản của tôi</p>
-              <h1 className="mt-2 truncate text-2xl font-semibold text-emerald-800 sm:text-3xl">{getDisplayName(user)}</h1>
-              {user?.email && <p className="mt-1 truncate text-sm text-emerald-600">{user.email}</p>}
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-[0_18px_50px_rgba(2,44,34,0.06)]">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-5">
+              <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              <button
+                type="button"
+                onClick={handleAvatarClick}
+                disabled={isSavingProfile}
+                className="relative flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-100 bg-emerald-50 text-4xl font-black text-emerald-700 shadow-sm"
+                aria-label="Chon anh dai dien"
+              >
+                {displayedAvatarUrl ? <img src={displayedAvatarUrl} alt="" className="h-full w-full object-cover" /> : getInitial(user)}
+                <span className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-emerald-950 shadow-md">
+                  <Camera className="h-5 w-5" />
+                </span>
+                {isSavingProfile && <span className="absolute inset-0 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />}
+              </button>
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-[0.12em] text-emerald-800">Tai khoan cua toi</p>
+                <h1 className="mt-3 truncate text-3xl font-black text-neutral-950">{getDisplayName(user)}</h1>
+                {user?.email && <p className="mt-2 truncate text-base text-neutral-600">{user.email}</p>}
+                <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                  <ShieldCheck className="h-4 w-4" />
+                  Tai khoan da xac thuc
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/account/orders"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-emerald-200 px-5 text-sm font-black text-emerald-800 hover:bg-emerald-50"
+              >
+                <Package className="h-4 w-4" />
+                Lich su order
+              </Link>
+              {!isEditingProfile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileForm(getProfileForm(user))
+                    setIsEditingProfile(true)
+                    setProfileError('')
+                    setProfileMessage('')
+                  }}
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-emerald-800 px-5 text-sm font-black text-white hover:bg-emerald-900"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  Chinh sua ho so
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-[0_18px_50px_rgba(2,44,34,0.06)]">
+          <div className="flex items-start gap-3">
+            <UserRound className="mt-1 h-5 w-5 text-emerald-700" />
+            <div>
+              <h2 className="text-2xl font-black text-neutral-950">Thong tin ca nhan</h2>
+              <p className="mt-1 text-sm text-neutral-500">Cap nhat ten hien thi, so dien thoai va anh dai dien.</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link
-              to="/account/orders"
-              className="inline-flex h-10 items-center rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-700 hover:border-emerald-500 hover:text-emerald-800"
-            >
-              Lịch sử order
+          {isEditingProfile ? (
+            <form onSubmit={handleProfileSubmit} className="mt-6 grid gap-4 rounded-xl border border-neutral-100 p-5 lg:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-neutral-700">Ten hien thi</span>
+                <input
+                  name="username"
+                  value={profileForm.username}
+                  onChange={handleProfileChange}
+                  disabled={isSavingProfile}
+                  className="h-11 rounded-lg border border-neutral-200 px-3 text-sm outline-none focus:border-emerald-700"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-neutral-700">So dien thoai</span>
+                <input
+                  name="phoneNumber"
+                  value={profileForm.phoneNumber}
+                  onChange={handleProfileChange}
+                  disabled={isSavingProfile}
+                  className="h-11 rounded-lg border border-neutral-200 px-3 text-sm outline-none focus:border-emerald-700"
+                />
+              </label>
+              {(profileMessage || profileError) && (
+                <p className={`text-sm font-semibold lg:col-span-2 ${profileError ? 'text-red-600' : 'text-emerald-700'}`}>
+                  {profileError || profileMessage}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3 lg:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="h-11 rounded-lg bg-emerald-800 px-5 text-sm font-black text-white hover:bg-emerald-900 disabled:opacity-60"
+                >
+                  {isSavingProfile ? 'Dang luu...' : 'Luu thay doi'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingProfile(false)
+                    setProfileError('')
+                    setProfileMessage('')
+                    resetAvatarPreview()
+                  }}
+                  disabled={isSavingProfile}
+                  className="h-11 rounded-lg border border-neutral-200 px-5 text-sm font-black text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                >
+                  Huy
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {(profileMessage || profileError) && (
+                <p className={`mt-5 text-sm font-semibold ${profileError ? 'text-red-600' : 'text-emerald-700'}`}>
+                  {profileError || profileMessage}
+                </p>
+              )}
+              <div className="mt-6 grid overflow-hidden rounded-xl border border-neutral-100 sm:grid-cols-2">
+                {profileFields.map((field) => {
+                  const Icon = field.icon
+                  return (
+                    <div key={field.label} className="flex gap-4 border-b border-neutral-100 p-5 even:sm:border-l">
+                      <Icon className="mt-1 h-5 w-5 shrink-0 text-emerald-700" strokeWidth={1.8} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-neutral-500">{field.label}</p>
+                        <p className="mt-1 break-words text-sm font-black text-neutral-950">{field.value}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-[0_18px_50px_rgba(2,44,34,0.06)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-1 h-5 w-5 text-emerald-700" />
+              <div>
+                <h2 className="text-2xl font-black text-neutral-950">Dia chi giao hang</h2>
+                <p className="mt-1 text-sm text-neutral-500">Quan ly dia chi nhan hang cua ban.</p>
+              </div>
+            </div>
+            <Link to="/account/addresses/new" className="inline-flex h-11 items-center rounded-lg border border-emerald-200 px-4 text-sm font-black text-emerald-800 hover:bg-emerald-50">
+              Quan ly dia chi
             </Link>
-            {!isEditingProfile && (
-              <button
-                type="button"
-                onClick={() => {
-                  setProfileForm(getProfileForm(user))
-                  setIsEditingProfile(true)
-                  setProfileError('')
-                  setProfileMessage('')
-                }}
-                className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800"
-              >
-                Chỉnh sửa hồ sơ
-              </button>
-            )}
           </div>
-        </div>
-      </div>
 
-      <section className="mt-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-2 border-b border-emerald-100 pb-5">
-          <h2 className="text-lg font-semibold text-emerald-800">Thông tin cá nhân</h2>
-          <p className="text-sm text-emerald-600">Cập nhật tên hiển thị, số điện thoại và ảnh đại diện.</p>
-        </div>
-
-        {isEditingProfile ? (
-          <form onSubmit={handleProfileSubmit} className="mt-5 grid gap-4 lg:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-emerald-700">Tên hiển thị</span>
-              <input
-                name="username"
-                value={profileForm.username}
-                onChange={handleProfileChange}
-                disabled={isSavingProfile}
-                className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-emerald-700">Số điện thoại</span>
-              <input
-                name="phoneNumber"
-                value={profileForm.phoneNumber}
-                onChange={handleProfileChange}
-                disabled={isSavingProfile}
-                className="h-11 rounded-md border border-emerald-200 px-3 text-sm text-emerald-800 outline-none focus:border-emerald-600 disabled:bg-emerald-50/60"
-              />
-            </label>
-            <div className="grid gap-2 lg:col-span-2">
-              <span className="text-sm font-medium text-emerald-700">Email</span>
-              <p className="flex h-11 items-center rounded-md border border-emerald-100 bg-emerald-50/60 px-3 text-sm text-emerald-500">
-                {user?.email || 'Chưa cập nhật'}
-              </p>
-            </div>
-            {(profileMessage || profileError) && (
-              <p className={`text-sm lg:col-span-2 ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>
-                {profileError || profileMessage}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-3 lg:col-span-2">
-              <button
-                type="submit"
-                disabled={isSavingProfile}
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
-              >
-                {isSavingProfile && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-                {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditingProfile(false)
-                  setProfileError('')
-                  setProfileMessage('')
-                  resetAvatarPreview()
-                }}
-                disabled={isSavingProfile}
-                className="h-10 rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-600 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-wait disabled:opacity-60"
-              >
-                Hủy
-              </button>
-            </div>
-          </form>
-        ) : (
-          <>
-            {(profileMessage || profileError) && (
-              <p className={`mt-5 text-sm ${profileError ? 'text-red-500' : 'text-emerald-600'}`}>{profileError || profileMessage}</p>
-            )}
-            <div className="mt-5 grid gap-x-8 sm:grid-cols-2">
-              {profileFields.map((field) => (
-                <div key={field.label} className="border-b border-emerald-100 py-4">
-                  <p className="text-sm font-medium text-emerald-500">{field.label}</p>
-                  <p className="mt-1 break-words text-sm font-medium text-emerald-800">{field.value}</p>
+          {isLoadingAddresses ? (
+            <p className="mt-6 text-sm text-neutral-500">Dang tai dia chi...</p>
+          ) : addressError ? (
+            <p className="mt-6 text-sm font-semibold text-red-600">{addressError}</p>
+          ) : addresses.length ? (
+            <div className="mt-6 grid gap-4">
+              {addresses.map((address) => (
+                <div key={address.id} className={`rounded-xl border p-4 ${address?.isDefault ? 'border-emerald-300 bg-emerald-50/60' : 'border-neutral-100 bg-white'}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-black text-emerald-950">{address.receiverName}</h3>
+                        {address?.isDefault && <span className="rounded-full bg-emerald-800 px-2.5 py-1 text-xs font-black text-white">Mac dinh</span>}
+                      </div>
+                      <p className="mt-1 text-sm text-neutral-600">{address.receiverPhone}</p>
+                      <p className="mt-2 text-sm leading-6 text-neutral-700">{formatFullAddress(address)}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAddress(address.id)}
+                        disabled={deletingAddressId === address.id}
+                        className="h-9 rounded-lg border border-red-100 px-3 text-sm font-black text-red-600 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        {deletingAddressId === address.id ? 'Dang xoa...' : 'Xoa'}
+                      </button>
+                      <Link to={`/account/addresses/${address.id}`} className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-black text-emerald-700 hover:bg-emerald-50">
+                        Chi tiet
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-          </>
-        )}
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3 border-b border-emerald-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-emerald-800">Địa chỉ giao hàng</h2>
-            <p className="mt-1 text-sm text-emerald-600">Chọn một địa chỉ để xem chi tiết hoặc chỉnh sửa.</p>
-          </div>
-          <Link
-            to="/account/addresses/new"
-            className="inline-flex h-10 w-fit items-center rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-700 hover:border-emerald-500 hover:text-emerald-800"
-          >
-            Thêm địa chỉ
-          </Link>
-        </div>
-
-        {isLoadingAddresses ? (
-          <p className="mt-5 text-sm text-emerald-600">Đang tải địa chỉ...</p>
-        ) : addressError ? (
-          <p className="mt-5 text-sm text-red-500">{addressError}</p>
-        ) : addresses.length ? (
-          <div className="mt-5 grid gap-4">
-            {addresses.map((address) => (
-              <div
-                key={address.id}
-                className={`rounded-xl border p-4 transition-colors hover:border-emerald-500 hover:bg-emerald-50/60 ${
-                  address?.isDefault ? 'border-emerald-400 bg-emerald-50/70' : 'border-emerald-100 bg-white'
-                }`}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-emerald-900">{address.receiverName}</h3>
-                      {address?.isDefault && (
-                        <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white">Mặc định</span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-sm text-emerald-700">{address.receiverPhone}</p>
-                    <p className="mt-2 break-words text-sm text-emerald-900/70">{formatFullAddress(address)}</p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteAddress(address.id)}
-                      disabled={deletingAddressId === address.id}
-                      className="h-9 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-600 hover:border-red-500 hover:text-red-700 disabled:cursor-wait disabled:opacity-60"
-                    >
-                      {deletingAddressId === address.id ? 'Đang xóa...' : 'Xóa'}
-                    </button>
-                    <Link
-                      to={`/account/addresses/${address.id}`}
-                      className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
-                    >
-                      Xem chi tiết
-                    </Link>
-                  </div>
-                </div>
+          ) : (
+            <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-neutral-100 bg-neutral-50 p-8 text-center sm:flex-row sm:gap-6 sm:text-left">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                <Home className="h-10 w-10" />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-6 text-sm text-emerald-700">
-            Chưa có địa chỉ giao hàng. Thêm địa chỉ đầu tiên để dùng khi thanh toán.
-          </div>
-        )}
+              <div>
+                <p className="font-black text-neutral-950">Ban chua co dia chi giao hang nao</p>
+                <p className="mt-2 text-sm text-neutral-500">Them dia chi de viec mua sam thuan tien hon.</p>
+                <Link to="/account/addresses/new" className="mt-4 inline-flex h-10 items-center rounded-lg bg-emerald-800 px-4 text-sm font-black text-white hover:bg-emerald-900">
+                  Them dia chi moi
+                </Link>
+              </div>
+            </div>
+          )}
 
-        {defaultAddress && (
-          <div className="mt-5 rounded-xl bg-emerald-900 px-4 py-3 text-sm text-white">
-            Địa chỉ mặc định: <span className="font-semibold">{formatFullAddress(defaultAddress)}</span>
+          {defaultAddress && (
+            <div className="mt-5 rounded-xl bg-emerald-900 px-4 py-3 text-sm text-white">
+              Dia chi mac dinh: <span className="font-semibold">{formatFullAddress(defaultAddress)}</span>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-[0_18px_50px_rgba(2,44,34,0.06)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <CreditCard className="mt-1 h-5 w-5 text-emerald-700" />
+              <div>
+                <h2 className="text-2xl font-black text-neutral-950">Phuong thuc thanh toan</h2>
+                <p className="mt-1 text-sm text-neutral-500">Quan ly cac phuong thuc thanh toan da luu.</p>
+              </div>
+            </div>
+            <button className="h-11 rounded-lg border border-emerald-200 px-4 text-sm font-black text-emerald-800 hover:bg-emerald-50">
+              Quan ly the
+            </button>
           </div>
-        )}
-      </section>
+          <div className="mt-6 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-500">
+            Ban chua luu phuong thuc thanh toan nao. Ban van co the thanh toan COD hoac online khi dat hang.
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

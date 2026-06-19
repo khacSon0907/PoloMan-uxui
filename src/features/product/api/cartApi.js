@@ -69,6 +69,7 @@ export function normalizeCartItems(cart) {
   const items = Array.isArray(cart?.items) ? cart.items : []
 
   return items.map((item) => ({
+    cartItemId: item.id || item._id || item.cartItemId || '',
     productId: item.productId || item.product?.id || item.product?._id || '',
     slug: item.product?.slug || item.slug || item.productId || '',
     name: item.productName || item.product?.name || item.name || item.productId || 'San pham',
@@ -120,8 +121,19 @@ export const cartApi = {
     return cart
   },
 
-  async removeItem(userId, productId) {
-    const response = await http.delete(`/carts/${userId}/items/${productId}`)
+  async removeItem(userId, productId, payload = {}) {
+    const response = await http.delete(`/carts/${userId}/items/${productId}`, {
+      params: {
+        colorId: payload.colorId || '',
+        sizeId: payload.sizeId || '',
+        cartItemId: payload.cartItemId || '',
+      },
+      data: {
+        colorId: payload.colorId || '',
+        sizeId: payload.sizeId || '',
+        cartItemId: payload.cartItemId || '',
+      },
+    })
     const cart = getApiData(response)
     setCachedCart(userId, cart)
     notifyCartUpdated()

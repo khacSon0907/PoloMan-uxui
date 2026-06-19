@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Store,
   Tags,
+  Truck,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -29,6 +30,7 @@ const adminNavItems = [
   { to: '/admin/banners', label: 'Banner', icon: Image },
   { to: '/admin/promotion-banners', label: 'Promotion', icon: Megaphone },
   { to: '/admin/orders', label: 'Don hang', icon: ShoppingBag },
+  { to: '/admin/shipping-rules', label: 'Phi ship', icon: Truck },
   { to: '/admin/users', label: 'Khach hang', icon: Users },
   { to: '/admin/roles', label: 'Roles', icon: ShieldCheck },
 ]

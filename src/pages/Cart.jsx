@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Banknote, Check, CreditCard, Heart, Lock, PackageCheck, ShieldCheck, Trash2, Truck } from 'lucide-react'
 
 import {
   cartApi,
@@ -35,14 +36,16 @@ const paymentMethods = [
   {
     value: 'COD',
     label: 'COD',
-    title: 'Thanh toan khi giao hang',
-    description: 'Tra tien mat sau khi nhan va kiem tra hang.',
+    title: 'Thanh toan khi nhan hang',
+    description: 'Tra tien mat cho shipper sau khi nhan va kiem tra san pham.',
+    tag: 'Ship COD',
   },
   {
     value: 'PAYOS',
-    label: 'Online',
-    title: 'Thanh toan online',
-    description: 'Tao ma QR PayOS de chuyen khoan va xac nhan thanh toan tu dong.',
+    label: 'Bank',
+    title: 'Thanh toan ngan hang',
+    description: 'Quet ma QR PayOS bang app ngan hang, he thong tu dong xac nhan.',
+    tag: 'QR ngan hang',
   },
 ]
 
@@ -708,6 +711,32 @@ function Cart() {
     }
   }
 
+  const handleClearCart = async () => {
+    if (!items.length) return
+
+    setErrorMessage('')
+
+    if (isBuyNowCheckout) {
+      sessionStorage.removeItem(BUY_NOW_STORAGE_KEY)
+      setItems([])
+      return
+    }
+
+    if (!userId) {
+      cartStorage.clear()
+      setItems([])
+      return
+    }
+
+    try {
+      await cartApi.clearCart(userId)
+      cartStorage.clear()
+      setItems([])
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the xoa gio hang.'))
+    }
+  }
+
   const handleCheckout = async () => {
     if (!items.length) return
 
@@ -865,7 +894,7 @@ function Cart() {
   }
 
   return (
-    <div className="space-y-6 rounded-3xl bg-[linear-gradient(135deg,#fbfdf8_0%,#f1f8ee_52%,#ffffff_100%)] p-4 sm:p-6 lg:p-8">
+    <div className="space-y-7 bg-[radial-gradient(circle_at_top_left,#f5fbf4_0%,#ffffff_42%,#f7faf7_100%)] px-4 py-6 sm:px-6 lg:px-8">
       <nav className="text-sm text-emerald-900/55">
         <Link to="/" className="hover:text-emerald-900">
           Trang chu
@@ -878,10 +907,174 @@ function Cart() {
         <span className="text-emerald-950">Gio hang</span>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.72fr)]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-emerald-950 sm:text-4xl">
+            {isBuyNowCheckout ? 'Thanh toan ngay' : 'Gio hang'}
+          </h1>
+          <p className="mt-3 text-sm text-emerald-900/65">
+            {items.length} san pham trong don hang
+          </p>
+        </div>
+        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-800">
+          <ShieldCheck className="h-5 w-5" />
+          Mua sam an tam 100% chinh hang
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
         <section className="space-y-5">
-          <div>
-            <h1 className="text-2xl font-black text-emerald-950 sm:text-3xl">Thong tin don hang</h1>
+          <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_16px_45px_rgba(15,76,58,0.08)] sm:p-6">
+            <div className="flex items-center gap-3 border-b border-emerald-100 pb-5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-800 text-white">
+                <Check className="h-4 w-4" />
+              </span>
+              <span className="text-sm font-black text-emerald-900">Chon tat ca ({items.length})</span>
+            </div>
+
+            {items.length ? (
+              <div className="mt-5">
+                <div className="hidden grid-cols-[minmax(280px,1fr)_140px_150px_150px] px-4 pb-4 text-center text-sm text-emerald-950 lg:grid">
+                  <span className="text-left pl-24">San pham</span>
+                  <span>Don gia</span>
+                  <span>So luong</span>
+                  <span>Thanh tien</span>
+                </div>
+
+                <div className="space-y-3">
+                {items.map((item, index) => (
+                  <div
+                    key={`${item.productId}-${item.colorName}-${item.size}-${index}`}
+                    className="grid gap-4 rounded-xl border border-emerald-100 bg-white p-3 transition-shadow hover:shadow-[0_12px_30px_rgba(15,76,58,0.08)] lg:grid-cols-[minmax(280px,1fr)_140px_150px_150px] lg:items-center"
+                  >
+                    <div className="grid grid-cols-[28px_96px_minmax(0,1fr)] items-center gap-4">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-800 text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="h-28 w-24 overflow-hidden rounded-xl bg-emerald-50">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-neutral-400">
+                            No image
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <Link
+                          to={`/products/${item.slug || item.productId}`}
+                          className="line-clamp-2 text-base font-black leading-6 text-emerald-950 hover:underline"
+                        >
+                          {item.name}
+                        </Link>
+                        <p className="mt-2 text-sm text-emerald-900/60">
+                          {item.colorName ? `Mau: ${item.colorName}` : 'Mau: -'} <span className="mx-2">•</span>{' '}
+                          {item.size ? `Size: ${item.size}` : 'Size: -'}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-emerald-900/65">
+                          <button type="button" className="inline-flex items-center gap-1.5 hover:text-emerald-800">
+                            <Heart className="h-4 w-4" />
+                            Yeu thich
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(index)}
+                            className="inline-flex items-center gap-1.5 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Xoa
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 lg:block lg:text-center">
+                      <span className="text-sm font-bold text-emerald-900/50 lg:hidden">Don gia</span>
+                      <span className="font-black text-emerald-950">{formatCurrency(Number(item.price || 0))}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 lg:justify-center">
+                      <span className="text-sm font-bold text-emerald-900/50 lg:hidden">So luong</span>
+                      <div className="flex h-11 items-center overflow-hidden rounded-xl border border-emerald-100 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(index, Number(item.quantity || 1) - 1)}
+                          className="h-full w-11 text-lg font-black text-emerald-900 hover:bg-emerald-50"
+                          aria-label="Giam so luong"
+                        >
+                          -
+                        </button>
+                        <span className="min-w-10 text-center text-sm font-black text-emerald-950">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(index, Number(item.quantity || 1) + 1)}
+                          className="h-full w-11 text-lg font-black text-emerald-900 hover:bg-emerald-50"
+                          aria-label="Tang so luong"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 lg:block lg:text-right">
+                      <span className="text-sm font-bold text-emerald-900/50 lg:hidden">Thanh tien</span>
+                      <p className="text-lg font-black text-emerald-800">
+                        {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-3 rounded-xl bg-emerald-50/75 px-4 py-4 text-sm text-emerald-800 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="inline-flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    {freeShippingGap > 0
+                      ? `Ban con thieu ${formatCurrency(freeShippingGap)} de duoc mien phi van chuyen`
+                      : 'Don hang duoc mien phi van chuyen'}
+                  </span>
+                  <Link to="/products" className="inline-flex items-center gap-2 font-bold underline-offset-4 hover:underline">
+                    Xem them san pham
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Link to="/products" className="inline-flex h-11 items-center gap-2 text-sm font-black text-emerald-800 hover:text-emerald-950">
+                    <ArrowLeft className="h-4 w-4" />
+                    Tiep tuc mua sam
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleClearCart}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-red-100 px-5 text-sm font-black text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Xoa gio hang
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-10 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-2xl font-black text-emerald-900">
+                  0
+                </div>
+                <h3 className="mt-4 text-lg font-black text-emerald-950">
+                  {isBuyNowCheckout ? 'Chua co san pham mua ngay' : 'Gio hang dang trong'}
+                </h3>
+                <Link
+                  to="/products"
+                  className="mt-5 inline-flex h-11 items-center rounded-lg bg-emerald-800 px-5 text-sm font-bold text-white hover:bg-emerald-900"
+                >
+                  Mua sam ngay
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_16px_45px_rgba(15,76,58,0.08)] sm:p-6">
+            <h2 className="text-xl font-black text-emerald-950">Thong tin giao hang</h2>
             <p className="mt-2 text-sm text-emerald-900/60">
               {isAuthenticated
                 ? 'Thong tin giao hang duoc lay tu tai khoan va co the chinh sua.'
@@ -1023,62 +1216,12 @@ function Cart() {
             />
           </div>
 
-          <div className="space-y-3">
-            <h2 className="text-xl font-black text-emerald-950">Hinh thuc thanh toan</h2>
-            <div className="grid gap-3">
-              {paymentMethods.map((method) => {
-                const isSelected = paymentMethod === method.value
-
-                return (
-                  <label
-                    key={method.value}
-                    className={`block cursor-pointer rounded-2xl border p-5 shadow-sm transition-colors ${
-                      isSelected
-                        ? 'border-emerald-600 bg-white'
-                        : 'border-emerald-100 bg-white/85 hover:border-emerald-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value={method.value}
-                        checked={isSelected}
-                        onChange={(event) => setPaymentMethod(event.target.value)}
-                        className="mt-1 h-5 w-5 accent-emerald-800"
-                      />
-                      <span className="rounded-md bg-emerald-800 px-3 py-2 text-sm font-black text-white">
-                        {method.label}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-bold text-emerald-950">{method.title}</span>
-                        <span className="mt-1 block text-sm text-emerald-900/65">{method.description}</span>
-                      </span>
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
         </section>
 
         <aside className="space-y-5">
-          <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
-            <h2 className="text-2xl font-black text-emerald-950">
-              {isBuyNowCheckout ? 'Thanh toan ngay' : 'Gio hang'}
-            </h2>
-            <span className="text-sm font-semibold text-emerald-900/55">{items.length} san pham</span>
-          </div>
-
           {isBuyNowCheckout && items.length > 0 && (
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
               Ban dang thanh toan rieng san pham nay, gio hang hien co se duoc giu nguyen.
-            </div>
-          )}
-
-          {freeShippingGap > 0 && (
-            <div className="rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white shadow-sm">
-              Mua them {formatCurrency(freeShippingGap)} de duoc mien phi van chuyen.
             </div>
           )}
 
@@ -1097,85 +1240,61 @@ function Cart() {
             </div>
           )}
 
-          {items.length ? (
-            <div className="space-y-4">
-              {items.map((item, index) => (
-                <div key={`${item.productId}-${item.colorName}-${item.size}-${index}`} className="flex gap-4 rounded-2xl border border-emerald-100 bg-white/85 p-3 shadow-sm">
-                  <div className="h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-emerald-50">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-neutral-400">
-                        No image
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Link
-                      to={`/products/${item.slug || item.productId}`}
-                      className="line-clamp-2 text-sm font-bold text-emerald-950 hover:underline"
-                    >
-                      {item.name}
-                    </Link>
-                    <p className="text-xs text-emerald-900/55">
-                      {item.colorName ? `Mau: ${item.colorName}` : 'Mau: -'} / {item.size ? `Size: ${item.size}` : 'Size: -'}
-                    </p>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex h-9 items-center rounded-md border border-emerald-100 bg-emerald-50/60">
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(index, Number(item.quantity || 1) - 1)}
-                          className="h-full px-3 text-sm font-black"
-                        >
-                          -
-                        </button>
-                        <span className="min-w-8 text-center text-sm font-bold">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(index, Number(item.quantity || 1) + 1)}
-                          className="h-full px-3 text-sm font-black"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(index)}
-                        className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-900/45 hover:text-red-600"
-                      >
-                        Xoa
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-sm font-black text-emerald-950">
-                    {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
-                  </p>
-                </div>
-              ))}
+          <div className="sticky bottom-4 rounded-2xl border border-emerald-100 bg-white p-5 shadow-[0_16px_45px_rgba(15,76,58,0.08)]">
+            <div className="mb-4 flex items-center justify-between border-b border-emerald-100 pb-4">
+              <h2 className="text-2xl font-black text-emerald-950">Tom tat don hang</h2>
+              <span className="text-sm font-semibold text-emerald-900/55">{items.length} san pham</span>
             </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-emerald-200 bg-white/80 p-10 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-2xl font-black text-emerald-900">
-                0
-              </div>
-              <h3 className="mt-5 text-lg font-black text-emerald-950">
-                {isBuyNowCheckout ? 'Chua co san pham mua ngay' : 'Gio hang dang trong'}
-              </h3>
-              <p className="mt-2 text-sm text-emerald-900/60">
-                {isBuyNowCheckout
-                  ? 'Quay lai trang san pham va bam Mua ngay de thanh toan.'
-                  : 'Ve trang san pham de chon mon hang ban thich.'}
-              </p>
-              <Link
-                to="/products"
-                className="mt-5 inline-flex h-11 items-center rounded-lg bg-emerald-800 px-5 text-sm font-bold text-white hover:bg-emerald-900"
-              >
-                Mua sam ngay
-              </Link>
-            </div>
-          )}
 
-          <div className="sticky bottom-0 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+            <div className="mb-5 space-y-3 border-b border-emerald-100 pb-5">
+              <p className="text-sm font-black uppercase tracking-[0.12em] text-emerald-900/55">Phuong thuc thanh toan</p>
+              {paymentMethods.map((method) => {
+                const isSelected = paymentMethod === method.value
+                const Icon = method.value === 'PAYOS' ? CreditCard : Banknote
+
+                return (
+                  <label
+                    key={method.value}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
+                      isSelected
+                        ? 'border-emerald-700 bg-emerald-50/80'
+                        : 'border-emerald-100 bg-white hover:border-emerald-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={method.value}
+                      checked={isSelected}
+                      onChange={(event) => setPaymentMethod(event.target.value)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                        isSelected ? 'bg-emerald-800 text-white' : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="text-sm font-black text-emerald-950">{method.title}</span>
+                        {isSelected && (
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-white">
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-emerald-900/65">{method.description}</span>
+                      <span className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-100">
+                        {method.tag}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+
             <div className="space-y-3 text-sm">
               <div className="flex justify-between text-emerald-900/65">
                 <span>Tam tinh</span>
@@ -1204,25 +1323,47 @@ function Cart() {
               </div>
               <div className="flex justify-between border-t border-emerald-100 pt-4 text-lg font-black text-emerald-950">
                 <span>Tong cong</span>
-                <span>{formatCurrency(total)}</span>
+                <span className="text-2xl text-emerald-800">{formatCurrency(total)}</span>
               </div>
             </div>
             <button
               type="button"
               onClick={handleCheckout}
               disabled={!items.length || isCheckingOut || isLoadingShippingRule}
-              className="mt-5 h-12 w-full rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
+              <Lock className="h-4 w-4" />
               {isCheckingOut
                 ? 'Dang tao don...'
                 : isLoadingShippingRule
                   ? 'Dang tinh phi ship...'
-                  : paymentMethod === 'PAYOS'
-                    ? 'Thanh toan QR'
-                    : 'Dat hang'}
+                  : 'Dat hang'}
             </button>
           </div>
         </aside>
+      </div>
+
+      <div className="grid gap-3 rounded-2xl bg-emerald-50/80 p-4 text-emerald-900 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { icon: ShieldCheck, title: 'Chinh hang 100%', text: 'Cam ket san pham chinh hang' },
+          { icon: PackageCheck, title: 'Doi tra de dang', text: 'Trong vong 7 ngay' },
+          { icon: Truck, title: 'Giao hang nhanh', text: 'Mien phi cho don tu 1 trieu' },
+          { icon: Banknote, title: 'Thanh toan linh hoat', text: 'Ngan hang hoac ship COD' },
+        ].map((item) => {
+          const Icon = item.icon
+
+          return (
+            <div key={item.title} className="flex items-center gap-3 rounded-xl px-3 py-2">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-emerald-800">
+                <Icon className="h-6 w-6" />
+              </span>
+              <span>
+                <span className="block text-sm font-black">{item.title}</span>
+                <span className="mt-1 block text-sm text-emerald-800/70">{item.text}</span>
+              </span>
+            </div>
+          )
+        })}
       </div>
 
       {pendingRemoveItem && (

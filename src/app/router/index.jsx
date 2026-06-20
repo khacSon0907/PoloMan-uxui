@@ -16,6 +16,7 @@ import AdminProducts from "../../pages/admin/AdminProducts";
 import AdminRoles from "../../pages/admin/AdminRoles";
 import AdminShippingRules from "../../pages/admin/AdminShippingRules";
 import AdminUsers from "../../pages/admin/AdminUsers";
+import AdminUserDetail from "../../pages/admin/AdminUserDetail";
 import Home from "../../pages/Home";
 
 import Cart from "../../pages/Cart";
@@ -161,6 +162,10 @@ export const router = createBrowserRouter([
           {
             path: "users",
             element: <AdminUsers />,
+          },
+          {
+            path: "users/:userId",
+            element: <AdminUserDetail />,
           },
           {
             path: "roles",

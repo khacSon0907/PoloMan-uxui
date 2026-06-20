@@ -149,7 +149,7 @@ function AccountOrders() {
     } catch (error) {
       setErrorMessage(
         getOrderErrorCode(error) === 'ORDER.INVALID_STATUS'
-          ? 'Chỉ có thể hủy đơn hàng khi đơn đang chờ xác nhận.'
+          ? 'Chỉ có thể hủy đơn hàng khi đơn đang chờ xử lý.'
           : getApiMessage(error, 'Khong the huy don hang.'),
       )
     } finally {

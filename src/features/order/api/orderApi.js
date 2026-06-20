@@ -40,6 +40,23 @@ export const orderApi = {
     return Array.isArray(data) ? data : []
   },
 
+  async getAdminOrdersCursor({ limit = 20, cursor = '' } = {}) {
+    const response = await http.get('/orders/admin/cursor', {
+      params: {
+        limit,
+        ...(cursor ? { cursor } : {}),
+      },
+    })
+    const data = unwrapApiResponse(response)
+
+    return {
+      items: Array.isArray(data?.items) ? data.items : [],
+      nextCursor: data?.nextCursor || null,
+      hasNext: Boolean(data?.hasNext && data?.nextCursor),
+      limit: Number(data?.limit || limit),
+    }
+  },
+
   async getOrdersByUserId(userId) {
     const response = await http.get(`/orders/user/${userId}`)
     const data = unwrapApiResponse(response)
@@ -58,6 +75,11 @@ export const orderApi = {
 
   async cancelOrder(orderId, cancelReason = '') {
     const response = await http.put(`/orders/${orderId}/cancel`, { cancelReason })
+    return unwrapApiResponse(response)
+  },
+
+  async returnOrder(orderId) {
+    const response = await http.put(`/orders/${orderId}/return`)
     return unwrapApiResponse(response)
   },
 }

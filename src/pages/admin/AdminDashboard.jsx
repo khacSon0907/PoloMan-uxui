@@ -10,9 +10,9 @@ const metrics = [
 ]
 
 const recentOrders = [
-  { id: 'PM26052501', customer: 'Nguyen Minh', status: 'Cho xac nhan', total: '1.240.000 VND' },
-  { id: 'PM26052502', customer: 'Tran Bao', status: 'Dang giao', total: '690.000 VND' },
-  { id: 'PM26052503', customer: 'Le Hoang', status: 'Hoan thanh', total: '980.000 VND' },
+  { id: 'PM26052501', customer: 'Nguyen Minh', status: 'Cho xu ly', total: '1.240.000 VND' },
+  { id: 'PM26052502', customer: 'Tran Bao', status: 'Da xac nhan', total: '690.000 VND' },
+  { id: 'PM26052503', customer: 'Le Hoang', status: 'Da tra hang', total: '980.000 VND' },
 ]
 
 function AdminDashboard() {

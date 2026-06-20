@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  canCancelOrder,
+  canReturnOrder,
   getOrderBusinessMessage,
   getOrderStatusBadgeClass,
   getOrderStatusLabel,
@@ -46,10 +48,25 @@ function AdminOrderDetail() {
   const { orderId } = useParams();
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isConfirming, setIsConfirming] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [nextStatus, setNextStatus] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const items = useMemo(() => (Array.isArray(order?.items) ? order.items : []), [order]);
+  const statusOptions = useMemo(() => {
+    if (canCancelOrder(order?.status)) {
+      return [
+        { value: "CONFIRMED", label: "Đã xác nhận" },
+        { value: "CANCELLED", label: "Đã hủy" },
+      ];
+    }
+
+    if (canReturnOrder(order?.status)) {
+      return [{ value: "RETURNED", label: "Đã trả hàng" }];
+    }
+
+    return [];
+  }, [order?.status]);
 
   const loadOrder = async () => {
     setIsLoading(true);
@@ -58,6 +75,7 @@ function AdminOrderDetail() {
     try {
       const data = await orderApi.getOrder(orderId);
       setOrder(data);
+      setNextStatus("");
     } catch (error) {
       setErrorMessage(getApiMessage(error, "Khong the tai chi tiet don hang."));
     } finally {
@@ -79,7 +97,10 @@ function AdminOrderDetail() {
     orderApi
       .getOrder(orderId)
       .then((data) => {
-        if (isMounted) setOrder(data);
+        if (isMounted) {
+          setOrder(data);
+          setNextStatus("");
+        }
       })
       .catch((error) => {
         if (isMounted) setErrorMessage(getApiMessage(error, "Khong the tai chi tiet don hang."));
@@ -93,22 +114,35 @@ function AdminOrderDetail() {
     };
   }, [orderId]);
 
-  const handleConfirmOrder = async () => {
+  const handleUpdateStatus = async () => {
     const id = order?.id || order?.orderId || orderId;
-    if (!id || !isPendingOrder(order?.status)) return;
+    if (!id || !nextStatus) return;
 
-    setIsConfirming(true);
+    setIsUpdatingStatus(true);
     setErrorMessage("");
     setSuccessMessage("");
 
     try {
-      await orderApi.confirmOrder(id);
-      setSuccessMessage("Da xac nhan don hang.");
+      if (nextStatus === "CONFIRMED" && isPendingOrder(order?.status)) {
+        await orderApi.confirmOrder(id);
+        setSuccessMessage("Đã xác nhận đơn hàng.");
+      } else if (nextStatus === "CANCELLED" && canCancelOrder(order?.status)) {
+        const cancelReason = window.prompt("Nhap ly do huy don hang:", "Admin huy don hang") || "";
+        await orderApi.cancelOrder(id, cancelReason);
+        setSuccessMessage("Đã hủy đơn hàng.");
+      } else if (nextStatus === "RETURNED" && canReturnOrder(order?.status)) {
+        await orderApi.returnOrder(id);
+        setSuccessMessage("Đã chuyển đơn sang trạng thái trả hàng.");
+      } else {
+        setErrorMessage("Không thể chuyển sang trạng thái này.");
+        return;
+      }
+
       await loadOrder();
     } catch (error) {
-      setErrorMessage(getOrderBusinessMessage(error, "Khong the xac nhan don hang."));
+      setErrorMessage(getOrderBusinessMessage(error, "Không thể cập nhật trạng thái đơn hàng."));
     } finally {
-      setIsConfirming(false);
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -162,16 +196,9 @@ function AdminOrderDetail() {
                     <p className="text-2xl font-black">{getOrderStatusLabel(order.status)}</p>
                     <p className="mt-1 text-sm text-white/70">Tao luc {formatDate(order.createdAt)}</p>
                   </div>
-                  {isPendingOrder(order.status) && (
-                    <button
-                      type="button"
-                      onClick={handleConfirmOrder}
-                      disabled={isConfirming}
-                      className="h-11 rounded-xl bg-white px-5 text-sm font-black uppercase tracking-[0.12em] text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isConfirming ? "Dang xac nhan" : "Xac nhan don"}
-                    </button>
-                  )}
+                  <span className="rounded-xl bg-white/15 px-4 py-3 text-sm font-black text-white">
+                    {getOrderStatusLabel(order.status)}
+                  </span>
                 </div>
               </div>
               <div className="grid gap-4 p-5 sm:grid-cols-3">
@@ -225,6 +252,41 @@ function AdminOrderDetail() {
           </section>
 
           <aside className="space-y-5">
+            <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-black text-emerald-950">Cập nhật trạng thái</h2>
+              {statusOptions.length ? (
+                <div className="mt-4 space-y-3">
+                  <select
+                    value={nextStatus}
+                    onChange={(event) => setNextStatus(event.target.value)}
+                    className="h-12 w-full rounded-xl border border-emerald-100 bg-white px-4 text-sm font-bold text-emerald-950 outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Chọn trạng thái tiếp theo</option>
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleUpdateStatus}
+                    disabled={!nextStatus || isUpdatingStatus}
+                    className="h-11 w-full rounded-xl bg-emerald-700 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isUpdatingStatus ? "Đang cập nhật..." : "Cập nhật trạng thái"}
+                  </button>
+                  <p className="text-xs font-semibold leading-5 text-neutral-500">
+                    PENDING có thể xác nhận hoặc hủy. CONFIRMED có thể chuyển sang trả hàng.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 rounded-xl bg-neutral-50 px-4 py-3 text-sm font-semibold text-neutral-500">
+                  Đơn hàng đã ở trạng thái cuối, không thể chuyển tiếp.
+                </p>
+              )}
+            </div>
+
             <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-black text-emerald-950">Giao hang</h2>
               <div className="mt-4 space-y-4 text-sm text-neutral-600">

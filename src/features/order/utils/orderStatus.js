@@ -1,46 +1,60 @@
+export const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED', 'RETURNED']
+
 export function normalizeOrderStatus(status) {
-  return String(status || 'PENDING').toUpperCase()
+  const normalizedStatus = String(status || 'PENDING').toUpperCase()
+
+  if (normalizedStatus === 'CANCELED') return 'CANCELLED'
+
+  return ORDER_STATUSES.includes(normalizedStatus) ? normalizedStatus : 'PENDING'
 }
 
 export function isPendingOrder(status) {
   return normalizeOrderStatus(status) === 'PENDING'
 }
 
+export function isConfirmedOrder(status) {
+  return normalizeOrderStatus(status) === 'CONFIRMED'
+}
+
+export function canCancelOrder(status) {
+  return normalizeOrderStatus(status) === 'PENDING'
+}
+
+export function canReturnOrder(status) {
+  return normalizeOrderStatus(status) === 'CONFIRMED'
+}
+
 export function getOrderStatusLabel(status) {
   const labels = {
-    PENDING: 'Chờ xác nhận',
+    PENDING: 'Chờ xử lý',
     CONFIRMED: 'Đã xác nhận',
-    PROCESSING: 'Đang xử lý',
-    SHIPPING: 'Đang giao',
-    DELIVERED: 'Đã giao',
     CANCELLED: 'Đã hủy',
-    CANCELED: 'Đã hủy',
     RETURNED: 'Đã trả hàng',
   }
 
-  return labels[normalizeOrderStatus(status)] || status || labels.PENDING
+  return labels[normalizeOrderStatus(status)] || labels.PENDING
 }
 
 export function getOrderStatusBadgeClass(status) {
   const normalizedStatus = normalizeOrderStatus(status)
 
-  if (normalizedStatus === 'CANCELLED' || normalizedStatus === 'CANCELED') {
-    return 'border-red-200 bg-red-50 text-red-600'
-  }
-
   if (normalizedStatus === 'PENDING') {
     return 'border-amber-200 bg-amber-50 text-amber-700'
   }
 
-  if (normalizedStatus === 'DELIVERED') {
-    return 'border-blue-200 bg-blue-50 text-blue-700'
+  if (normalizedStatus === 'CONFIRMED') {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  }
+
+  if (normalizedStatus === 'CANCELLED') {
+    return 'border-red-200 bg-red-50 text-red-600'
   }
 
   if (normalizedStatus === 'RETURNED') {
     return 'border-neutral-200 bg-neutral-50 text-neutral-600'
   }
 
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  return 'border-neutral-200 bg-neutral-50 text-neutral-600'
 }
 
 export function getOrderErrorCode(error) {

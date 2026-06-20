@@ -16,7 +16,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   cartApi,
   cartStorage,
-  favoriteStorage,
+  favoriteApi,
   formatCurrency,
   getImageUrl,
   getProductColorCode,
@@ -63,7 +63,9 @@ function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [successMessage, setSuccessMessage] = useState('')
+  const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [isFavorite, setIsFavorite] = useState(false)
+  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [reviewImages, setReviewImages] = useState([])
@@ -98,12 +100,19 @@ function ProductDetail() {
     [product?.description],
   )
   const hasLongDescription = descriptionParagraphs.join(' ').length > 520 || descriptionParagraphs.length > 2
+  const userId = getUserId(authSnapshot.user)
 
   usePageMeta({
     title: productName ? `${productName} | PoloMan` : 'Chi tiet san pham | PoloMan',
     description: product?.description || 'Chi tiet san pham PoloMan.',
     canonicalPath: `/products/${id}`,
   })
+
+  useEffect(() => {
+    const unsubscribe = tokenStorage.subscribe(setAuthSnapshot)
+
+    return unsubscribe
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -159,18 +168,29 @@ function ProductDetail() {
   }, [id])
 
   useEffect(() => {
-    if (!product) return
+    if (!product || !userId) {
+      Promise.resolve().then(() => {
+        setIsFavorite(false)
+      })
+      return undefined
+    }
 
     let isMounted = true
+    const productId = String(getProductId(product))
 
-    Promise.resolve().then(() => {
-      if (isMounted) setIsFavorite(favoriteStorage.hasItem(getProductId(product)))
-    })
+    favoriteApi
+      .getFavorite(userId)
+      .then((items) => {
+        if (isMounted) setIsFavorite(items.some((item) => String(item.productId) === productId))
+      })
+      .catch(() => {
+        if (isMounted) setIsFavorite(false)
+      })
 
     return () => {
       isMounted = false
     }
-  }, [product])
+  }, [product, userId])
 
   useEffect(() => {
     if (!product) return undefined
@@ -308,25 +328,43 @@ function ProductDetail() {
     navigate('/cart?mode=buy-now')
   }
 
-  const handleToggleFavorite = () => {
+  const handleToggleFavorite = async () => {
     if (!product) return
+    if (isFavoriteLoading) return
 
-    const nextFavorite = favoriteStorage.toggleItem({
-      productId: getProductId(product),
-      slug: getProductSlug(product),
-      name: productName,
-      price: getProductPrice(product),
-      image: mainImage,
-      colorId: getProductColorId(selectedColor),
-      colorName: getProductColorName(selectedColor),
-      colorCode: getProductColorCode(selectedColor),
-      sizeId: getProductSizeId(selectedSizeData),
-      size: selectedSize || getProductSizeName(selectedSizeData),
-    })
+    if (!userId) {
+      navigate('/login', {
+        state: {
+          message: 'Vui long dang nhap de them san pham vao yeu thich.',
+        },
+      })
+      return
+    }
+
+    const productId = getProductId(product)
+    const nextFavorite = !isFavorite
 
     setIsFavorite(nextFavorite)
+    setIsFavoriteLoading(true)
     setSuccessMessage(nextFavorite ? 'Da luu san pham vao yeu thich.' : 'Da xoa san pham khoi yeu thich.')
     setErrorMessage('')
+
+    try {
+      if (nextFavorite) {
+        await favoriteApi.addItem(userId, productId)
+      } else {
+        await favoriteApi.removeItem(userId, productId)
+      }
+
+      const latestFavorites = await favoriteApi.getFavorite(userId)
+      setIsFavorite(latestFavorites.some((item) => String(item.productId) === String(productId)))
+    } catch (error) {
+      setIsFavorite(!nextFavorite)
+      setSuccessMessage('')
+      setErrorMessage(getApiMessage(error, 'Khong the cap nhat san pham yeu thich.'))
+    } finally {
+      setIsFavoriteLoading(false)
+    }
   }
 
   const showImageControls = imageUrls.length > 1
@@ -455,9 +493,10 @@ function ProductDetail() {
             <button
               type="button"
               onClick={handleToggleFavorite}
+              disabled={isFavoriteLoading}
               className={`absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border bg-white/92 shadow-sm backdrop-blur transition-colors ${
                 isFavorite ? 'border-red-100 text-red-600' : 'border-neutral-100 text-emerald-950 hover:text-emerald-700'
-              }`}
+              } disabled:cursor-wait disabled:opacity-70`}
               aria-label="Them vao yeu thich"
             >
               <Heart className="h-5 w-5" fill={isFavorite ? 'currentColor' : 'none'} strokeWidth={1.8} />

@@ -50,6 +50,49 @@ function getPaymentUrl(payment, order) {
   return payment?.checkoutUrl || payment?.paymentUrl || order?.checkoutUrl || order?.paymentUrl || ''
 }
 
+function playPaymentSuccessSound() {
+  if (typeof window === 'undefined') return
+
+  const AudioContext = window.AudioContext || window.webkitAudioContext
+  if (!AudioContext) return
+
+  let audioContext
+
+  try {
+    audioContext = new AudioContext()
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => null)
+    }
+  } catch {
+    return
+  }
+
+  const now = audioContext.currentTime
+  const notes = [880, 1174.66, 1567.98]
+
+  notes.forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator()
+    const gain = audioContext.createGain()
+    const startAt = now + index * 0.14
+    const stopAt = startAt + 0.12
+
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(frequency, startAt)
+    gain.gain.setValueAtTime(0.0001, startAt)
+    gain.gain.exponentialRampToValueAtTime(0.22, startAt + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, stopAt)
+
+    oscillator.connect(gain)
+    gain.connect(audioContext.destination)
+    oscillator.start(startAt)
+    oscillator.stop(stopAt)
+  })
+
+  window.setTimeout(() => {
+    audioContext.close().catch(() => null)
+  }, 900)
+}
+
 function CheckoutPayment() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -63,6 +106,7 @@ function CheckoutPayment() {
   const [socketStatus, setSocketStatus] = useState('connecting')
   const [statusMessage, setStatusMessage] = useState('Dang ket noi cong thanh toan...')
   const [errorMessage, setErrorMessage] = useState('')
+  const [successNotice, setSuccessNotice] = useState('')
   const [isCreatingCodOrder, setIsCreatingCodOrder] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
 
@@ -79,6 +123,7 @@ function CheckoutPayment() {
       setSocketStatus('connecting')
       setStatusMessage('Dang ket noi cong thanh toan...')
       setErrorMessage('')
+      setSuccessNotice('')
     })
 
     const cleanup = subscribePaymentStatus(payment.orderId, {
@@ -90,22 +135,30 @@ function CheckoutPayment() {
         const nextStatus = String(message?.paymentStatus || '').toUpperCase()
 
         if (nextStatus === 'PAID') {
+          const paidMessage = 'Bạn đã chuyển khoản thành công.'
           setSocketStatus('paid')
-          setStatusMessage(message?.message || 'Thanh toan thanh cong.')
+          setStatusMessage(paidMessage)
+          setSuccessNotice(paidMessage)
+          playPaymentSuccessSound()
           sessionStorage.removeItem('poloman:checkout-payment')
           socketCleanupRef.current?.()
           socketCleanupRef.current = null
 
+          window.setTimeout(() => {
+            window.alert('Bạn đã chuyển khoản thành công')
+          }, 180)
+
           if (!isGuestOrder) {
             window.setTimeout(() => {
               navigate(`/account/orders/${message?.orderId || payment.orderId || order.id}`, { replace: true })
-            }, 900)
+            }, 2400)
           }
           return
         }
 
         if (nextStatus === 'FAILED') {
           setSocketStatus('failed')
+          setSuccessNotice('')
           setErrorMessage(message?.message || 'Thanh toan that bai. Vui long thu lai hoac doi sang COD.')
           socketCleanupRef.current?.()
           socketCleanupRef.current = null
@@ -128,6 +181,7 @@ function CheckoutPayment() {
   const handleRetryPayment = () => {
     setSocketStatus('connecting')
     setErrorMessage('')
+    setSuccessNotice('')
     setStatusMessage('Dang ket noi lai cong thanh toan...')
     setRetryCount((current) => current + 1)
   }
@@ -186,6 +240,20 @@ function CheckoutPayment() {
 
   return (
     <div className="space-y-6 rounded-3xl bg-[linear-gradient(135deg,#fbfdf8_0%,#f1f8ee_52%,#ffffff_100%)] p-4 sm:p-6 lg:p-8">
+      {successNotice && (
+        <div className="fixed right-4 top-24 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-emerald-200 bg-white p-4 shadow-[0_22px_60px_rgba(15,76,58,0.2)]">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white">
+              ✓
+            </span>
+            <div>
+              <p className="text-sm font-black text-emerald-950">Thanh toan thanh cong</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-emerald-700">{successNotice}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="text-sm text-emerald-900/55">
         <Link to="/" className="hover:text-emerald-900">
           Trang chu

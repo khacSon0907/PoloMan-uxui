@@ -1,49 +1,85 @@
 import { getApiData, http } from "../../../shared/api";
 
+export const FAVORITES_UPDATED_EVENT = "poloman-favorites-updated";
+
+function notifyFavoritesUpdated() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(FAVORITES_UPDATED_EVENT));
+  }
+}
+
+function getFavoriteResponseItems(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.favoriteItems)) return data.favoriteItems;
+  if (Array.isArray(data?.products)) return data.products;
+  if (Array.isArray(data?.data?.items)) return data.data.items;
+
+  return [];
+}
+
+export function getFavoriteProductId(item) {
+  return (
+    item?.productId ||
+    item?.product?.id ||
+    item?.product?._id ||
+    item?.id ||
+    item?._id ||
+    ""
+  );
+}
+
+export function normalizeFavoriteItem(item) {
+  const product = item?.product || item;
+  const productId = getFavoriteProductId(item);
+
+  return {
+    ...item,
+    product,
+    favoriteItemId: item?.favoriteItemId || item?.id || item?._id || "",
+    productId,
+    slug: product?.slug || item?.slug || productId,
+    name: product?.name || item?.productName || item?.name || productId || "San pham",
+    price: product?.salePrice || product?.price || item?.price || item?.unitPrice || 0,
+    image:
+      product?.imageUrl ||
+      product?.image ||
+      product?.thumbnail ||
+      item?.productImage ||
+      item?.image ||
+      "",
+  };
+}
+
+export function normalizeFavoriteItems(data) {
+  return getFavoriteResponseItems(data).map(normalizeFavoriteItem).filter((item) => item.productId);
+}
+
 export const favoriteApi = {
-  /**
-   * Get user's favorite list
-   * @param {string} userId - User ID
-   * @returns {Promise} Favorite list with items
-   */
   async getFavorite(userId) {
-    const response = await http.get(`/api/favorites/${userId}`);
-    return getApiData(response);
+    if (!userId) return [];
+
+    const response = await http.get(`/favorites/${userId}`);
+    return normalizeFavoriteItems(getApiData(response));
   },
 
-  /**
-   * Add product to favorites
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID to add
-   * @returns {Promise} Updated favorite list
-   */
   async addItem(userId, productId) {
-    const response = await http.post(`/api/favorites/${userId}/items`, {
+    const response = await http.post(`/favorites/${userId}/items`, {
       productId,
     });
-    return getApiData(response);
+    notifyFavoritesUpdated();
+    return normalizeFavoriteItems(getApiData(response));
   },
 
-  /**
-   * Remove product from favorites
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID to remove
-   * @returns {Promise} Success message
-   */
   async removeItem(userId, productId) {
-    const response = await http.delete(
-      `/api/favorites/${userId}/items/${productId}`,
-    );
+    const response = await http.delete(`/favorites/${userId}/items/${productId}`);
+    notifyFavoritesUpdated();
     return getApiData(response);
   },
 
-  /**
-   * Clear all favorites
-   * @param {string} userId - User ID
-   * @returns {Promise} Success message
-   */
   async clearFavorite(userId) {
-    const response = await http.delete(`/api/favorites/${userId}`);
+    const response = await http.delete(`/favorites/${userId}`);
+    notifyFavoritesUpdated();
     return getApiData(response);
   },
 };

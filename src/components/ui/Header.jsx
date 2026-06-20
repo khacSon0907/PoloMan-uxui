@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
 import { categoryApi, normalizeCategoryTree } from '../../features/category'
-import { cartApi, cartStorage, CART_UPDATED_EVENT, getUserId } from '../../features/product'
+import { cartApi, cartStorage, CART_UPDATED_EVENT, favoriteApi, FAVORITES_UPDATED_EVENT, getUserId } from '../../features/product'
 import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
 import PromotionTicker from './PromotionTicker'
 
@@ -37,6 +37,7 @@ function Header() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [cartCount, setCartCount] = useState(() => cartStorage.getCount())
+  const [favoriteCount, setFavoriteCount] = useState(0)
   const [categoryTree, setCategoryTree] = useState([])
   const user = authSnapshot.user
   const userId = getUserId(user)
@@ -106,6 +107,29 @@ function Header() {
     return () => {
       window.removeEventListener(CART_UPDATED_EVENT, syncCartCount)
       window.removeEventListener('storage', syncCartCount)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    const syncFavoriteCount = async () => {
+      if (!userId) {
+        setFavoriteCount(0)
+        return
+      }
+
+      try {
+        const favorites = await favoriteApi.getFavorite(userId)
+        setFavoriteCount(favorites.length)
+      } catch {
+        setFavoriteCount(0)
+      }
+    }
+
+    syncFavoriteCount()
+    window.addEventListener(FAVORITES_UPDATED_EVENT, syncFavoriteCount)
+
+    return () => {
+      window.removeEventListener(FAVORITES_UPDATED_EVENT, syncFavoriteCount)
     }
   }, [userId])
 
@@ -217,8 +241,13 @@ function Header() {
             />
           </form>
 
-          <Link to="/favorites" className="hidden h-11 w-11 items-center justify-center rounded-full hover:bg-emerald-50 sm:flex" aria-label="Yeu thich">
+          <Link to="/favorites" className="relative hidden h-11 w-11 items-center justify-center rounded-full hover:bg-emerald-50 sm:flex" aria-label="Yeu thich">
             <Heart className="h-6 w-6" strokeWidth={1.8} />
+            {favoriteCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-800 px-1 text-[10px] font-black text-white">
+                {favoriteCount}
+              </span>
+            )}
           </Link>
 
           <Link to="/cart" data-cart-target className="relative flex h-11 w-11 items-center justify-center rounded-full hover:bg-emerald-50" aria-label="Gio hang">

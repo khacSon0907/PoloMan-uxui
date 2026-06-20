@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronDown,
   Filter,
@@ -15,7 +15,7 @@ import {
 
 import { categoryApi, flattenCategoryTree, normalizeCategoryTree } from '../features/category'
 import {
-  favoriteStorage,
+  favoriteApi,
   formatCurrency,
   getProductColors,
   getProductColorCode,
@@ -24,9 +24,10 @@ import {
   getProductName,
   getProductPrice,
   getProductSlug,
+  getUserId,
   productApi,
 } from '../features/product'
-import { getApiMessage } from '../shared/api'
+import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
 function normalizeValue(value) {
@@ -110,6 +111,7 @@ function productMatchesPrice(product, selectedPriceFilters) {
 }
 
 function Products() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedPriceFilters, setSelectedPriceFilters] = useState([])
   const [sortMode, setSortMode] = useState('newest')
@@ -118,11 +120,12 @@ function Products() {
   const [expandedCategoryIds, setExpandedCategoryIds] = useState(() => new Set())
   const [categoriesLoaded, setCategoriesLoaded] = useState(false)
   const [products, setProducts] = useState([])
-  const [favoriteIds, setFavoriteIds] = useState(() =>
-    new Set(favoriteStorage.getItems().map((item) => String(item.productId))),
-  )
+  const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set())
+  const [pendingFavoriteIds, setPendingFavoriteIds] = useState(() => new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const userId = getUserId(authSnapshot.user)
   const selectedCategory = searchParams.get('category') || 'all'
   const selectedCategoryRequestId = useMemo(
     () => getCategoryRequestId(categories, selectedCategory),
@@ -134,6 +137,38 @@ function Products() {
     description: 'Kham pha san pham thoi trang nam PoloMan theo danh muc va muc gia.',
     canonicalPath: '/products',
   })
+
+  useEffect(() => {
+    const unsubscribe = tokenStorage.subscribe(setAuthSnapshot)
+
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    if (!userId) {
+      Promise.resolve().then(() => {
+        if (isMounted) setFavoriteIds(new Set())
+      })
+      return () => {
+        isMounted = false
+      }
+    }
+
+    favoriteApi
+      .getFavorite(userId)
+      .then((items) => {
+        if (isMounted) setFavoriteIds(new Set(items.map((item) => String(item.productId))))
+      })
+      .catch(() => {
+        if (isMounted) setFavoriteIds(new Set())
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [userId])
 
   useEffect(() => {
     let isMounted = true
@@ -249,10 +284,6 @@ function Products() {
     )
   }
 
-  const syncFavoriteIds = () => {
-    setFavoriteIds(new Set(favoriteStorage.getItems().map((item) => String(item.productId))))
-  }
-
   const handleCategoryChange = (categoryId) => {
     if (categoryId === 'all') {
       setSearchParams({})
@@ -277,19 +308,56 @@ function Products() {
     })
   }
 
-  const handleToggleFavorite = (event, product) => {
+  const handleToggleFavorite = async (event, product) => {
     event.preventDefault()
     event.stopPropagation()
 
     const productId = getProductId(product)
-    favoriteStorage.toggleItem({
-      productId,
-      slug: getProductSlug(product),
-      name: getProductName(product) || product?.name,
-      price: getProductPrice(product),
-      image: getProductImage(product),
+    if (!productId || pendingFavoriteIds.has(String(productId))) return
+
+    if (!userId) {
+      navigate('/login', {
+        state: {
+          message: 'Vui long dang nhap de them san pham vao yeu thich.',
+        },
+      })
+      return
+    }
+
+    const normalizedProductId = String(productId)
+    const wasFavorite = favoriteIds.has(normalizedProductId)
+
+    setPendingFavoriteIds((current) => new Set(current).add(normalizedProductId))
+    setFavoriteIds((current) => {
+      const next = new Set(current)
+      if (wasFavorite) next.delete(normalizedProductId)
+      else next.add(normalizedProductId)
+      return next
     })
-    syncFavoriteIds()
+
+    try {
+      if (wasFavorite) {
+        await favoriteApi.removeItem(userId, productId)
+      } else {
+        await favoriteApi.addItem(userId, productId)
+      }
+
+      const latestFavorites = await favoriteApi.getFavorite(userId)
+      setFavoriteIds(new Set(latestFavorites.map((item) => String(item.productId))))
+    } catch {
+      setFavoriteIds((current) => {
+        const next = new Set(current)
+        if (wasFavorite) next.add(normalizedProductId)
+        else next.delete(normalizedProductId)
+        return next
+      })
+    } finally {
+      setPendingFavoriteIds((current) => {
+        const next = new Set(current)
+        next.delete(normalizedProductId)
+        return next
+      })
+    }
   }
 
   const renderCategoryNode = (category, level = 0) => {
@@ -517,11 +585,13 @@ function Products() {
                 const imageUrl = getProductImage(prod)
                 const discountPercent = getDiscountPercent(prod)
                 const colors = getProductColors(prod)
-                const isFavorite = favoriteIds.has(String(getProductId(prod)))
+                const productId = getProductId(prod)
+                const isFavorite = favoriteIds.has(String(productId))
+                const isFavoritePending = pendingFavoriteIds.has(String(productId))
 
                 return (
                   <Link
-                    key={getProductId(prod) || index}
+                    key={productId || index}
                     to={`/products/${getProductSlug(prod)}`}
                     className={`group relative overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_18px_35px_rgba(15,76,58,0.1)] ${
                       viewMode === 'list' ? 'grid gap-4 p-3 sm:grid-cols-[220px_minmax(0,1fr)]' : 'flex h-full flex-col'
@@ -540,9 +610,10 @@ function Products() {
                       <button
                         type="button"
                         onClick={(event) => handleToggleFavorite(event, prod)}
+                        disabled={isFavoritePending}
                         className={`absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border bg-white shadow-sm transition-colors ${
                           isFavorite ? 'border-red-100 text-red-600' : 'border-neutral-100 text-emerald-950 hover:text-red-600'
-                        }`}
+                        } disabled:cursor-wait disabled:opacity-70`}
                         aria-label="Yeu thich"
                       >
                         <Heart className="h-5 w-5" fill={isFavorite ? 'currentColor' : 'none'} />

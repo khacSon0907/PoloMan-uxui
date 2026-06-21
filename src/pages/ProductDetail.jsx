@@ -3,12 +3,15 @@ import {
   Check,
   Headphones,
   Heart,
+  ImagePlus,
+  Loader2,
   RotateCcw,
   Ruler,
   ShieldCheck,
   ShoppingBag,
   Star,
   Ticket,
+  Trash2,
   Truck,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -36,8 +39,10 @@ import {
   getUserId,
   productApi,
 } from '../features/product'
+import { emptyReviewSummary, reviewApi } from '../features/review'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
+import { uploadImageToCloudinary } from '../shared/services/cloudinaryUpload'
 import { playAddToCartEffect } from '../shared/utils/cartMotion'
 
 function clampQuantity(value, maxQuantity) {
@@ -50,6 +55,51 @@ function clampQuantity(value, maxQuantity) {
 }
 
 const BUY_NOW_STORAGE_KEY = 'poloman:buy-now-checkout'
+const REVIEW_IMAGE_LIMIT = 4
+
+function getReviewId(review) {
+  return review?.id || review?._id || review?.reviewId || ''
+}
+
+function getReviewUserId(review) {
+  return review?.userId || review?.user?.id || review?.user?._id || review?.user?.userId || ''
+}
+
+function getReviewUserName(review) {
+  return review?.userName || review?.username || review?.user?.username || review?.user?.fullName || review?.user?.name || getReviewUserId(review) || 'Khach hang'
+}
+
+function getReviewImages(review) {
+  if (Array.isArray(review?.images)) return review.images.filter(Boolean)
+  if (Array.isArray(review?.imageUrls)) return review.imageUrls.filter(Boolean)
+  if (review?.image) return [review.image]
+
+  return []
+}
+
+function formatReviewDate(value) {
+  if (!value) return 'Vua xong'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Vua xong'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function getCreatedAt(review) {
+  return review?.createdAt || review?.createdDate || review?.created_at || review?.updatedAt || review?.updatedDate
+}
+
+function clampRating(value) {
+  const rating = Number(value)
+  if (!Number.isFinite(rating)) return 0
+
+  return Math.min(5, Math.max(0, Math.round(rating)))
+}
 
 function ProductDetail() {
   const { id } = useParams()
@@ -69,13 +119,21 @@ function ProductDetail() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [reviewImages, setReviewImages] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [reviewSummary, setReviewSummary] = useState(emptyReviewSummary)
+  const [isReviewsLoading, setIsReviewsLoading] = useState(false)
+  const [reviewErrorMessage, setReviewErrorMessage] = useState('')
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false)
+  const [deletingReviewId, setDeletingReviewId] = useState('')
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [activeDetailTab, setActiveDetailTab] = useState('description')
   const [recommendedProducts, setRecommendedProducts] = useState([])
   const mainImageRef = useRef(null)
   const addToCartButtonRef = useRef(null)
+  const reviewsPanelRef = useRef(null)
   const reviewImageInputRef = useRef(null)
   const reviewImagesRef = useRef([])
+  const skipNextReviewAutofillRef = useRef(false)
 
   const colors = useMemo(() => getProductColors(product), [product])
   const selectedColor = colors[selectedColorIndex] || colors[0]
@@ -101,6 +159,14 @@ function ProductDetail() {
   )
   const hasLongDescription = descriptionParagraphs.join(' ').length > 520 || descriptionParagraphs.length > 2
   const userId = getUserId(authSnapshot.user)
+  const productId = product ? getProductId(product) : ''
+  const userReview = useMemo(
+    () => reviews.find((review) => userId && String(getReviewUserId(review)) === String(userId)),
+    [reviews, userId],
+  )
+  const userReviewId = getReviewId(userReview)
+  const averageRating = Number(reviewSummary.averageRating || 0)
+  const totalReviews = Number(reviewSummary.totalReviews || reviews.length || 0)
 
   usePageMeta({
     title: productName ? `${productName} | PoloMan` : 'Chi tiet san pham | PoloMan',
@@ -193,6 +259,68 @@ function ProductDetail() {
   }, [product, userId])
 
   useEffect(() => {
+    if (!productId) return undefined
+
+    let isMounted = true
+
+    Promise.resolve().then(() => {
+      if (!isMounted) return
+      setIsReviewsLoading(true)
+      setReviewErrorMessage('')
+    })
+
+    Promise.all([
+      reviewApi.getReviewsByProductId(productId),
+      reviewApi.getReviewSummaryByProductId(productId),
+    ])
+      .then(([nextReviews, nextSummary]) => {
+        if (!isMounted) return
+
+        setReviews(nextReviews)
+        setReviewSummary(nextSummary)
+      })
+      .catch((error) => {
+        if (!isMounted) return
+
+        setReviews([])
+        setReviewSummary(emptyReviewSummary)
+        setReviewErrorMessage(getApiMessage(error, 'Khong the tai danh gia san pham.'))
+      })
+      .finally(() => {
+        if (isMounted) setIsReviewsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [productId])
+
+  useEffect(() => {
+    if (!userReview) return
+
+    Promise.resolve().then(() => {
+      if (skipNextReviewAutofillRef.current) {
+        skipNextReviewAutofillRef.current = false
+        return
+      }
+
+      setReviewRating(clampRating(userReview.rating))
+      setReviewText(userReview.comment || userReview.content || userReview.text || '')
+      setReviewImages(
+        getReviewImages(userReview)
+          .slice(0, REVIEW_IMAGE_LIMIT)
+          .map((imageUrl, index) => ({
+            id: `saved-${index}-${imageUrl}`,
+            url: imageUrl,
+            name: `Anh danh gia ${index + 1}`,
+            previewUrl: imageUrl,
+            isObjectUrl: false,
+          })),
+      )
+    })
+  }, [userReview])
+
+  useEffect(() => {
     if (!product) return undefined
 
     let isMounted = true
@@ -234,7 +362,9 @@ function ProductDetail() {
 
   useEffect(
     () => () => {
-      reviewImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+      reviewImagesRef.current.forEach((image) => {
+        if (image.isObjectUrl) URL.revokeObjectURL(image.previewUrl)
+      })
     },
     [],
   )
@@ -381,10 +511,23 @@ function ProductDetail() {
     setSelectedImageIndex((current) => (current + 1) % imageUrls.length)
   }
 
+  const reloadReviews = async () => {
+    if (!productId) return
+
+    const [nextReviews, nextSummary] = await Promise.all([
+      reviewApi.getReviewsByProductId(productId),
+      reviewApi.getReviewSummaryByProductId(productId),
+    ])
+
+    setReviews(nextReviews)
+    setReviewSummary(nextSummary)
+    setReviewErrorMessage('')
+  }
+
   const handleReviewImagesChange = (event) => {
     const files = Array.from(event.target.files || [])
       .filter((file) => file.type.startsWith('image/'))
-      .slice(0, Math.max(0, 4 - reviewImages.length))
+      .slice(0, Math.max(0, REVIEW_IMAGE_LIMIT - reviewImages.length))
 
     event.target.value = ''
 
@@ -394,8 +537,10 @@ function ProductDetail() {
       ...current,
       ...files.map((file) => ({
         id: `${file.name}-${file.lastModified}-${file.size}`,
+        file,
         name: file.name,
         previewUrl: URL.createObjectURL(file),
+        isObjectUrl: true,
       })),
     ])
   }
@@ -404,7 +549,7 @@ function ProductDetail() {
     setReviewImages((current) =>
       current.filter((image) => {
         if (image.id === imageId) {
-          URL.revokeObjectURL(image.previewUrl)
+          if (image.isObjectUrl) URL.revokeObjectURL(image.previewUrl)
           return false
         }
 
@@ -413,26 +558,211 @@ function ProductDetail() {
     )
   }
 
-  const handlePreviewReviewSubmit = (event) => {
-    event.preventDefault()
-    setSuccessMessage('Da tao ban xem truoc danh gia. Chuc nang gui API se lam sau.')
-    setErrorMessage('')
+  const resetReviewForm = () => {
+    reviewImagesRef.current.forEach((image) => {
+      if (image.isObjectUrl) URL.revokeObjectURL(image.previewUrl)
+    })
+    setReviewImages([])
+    setReviewText('')
+    setReviewRating(5)
   }
 
-  const reviewSamples = [
-    {
-      name: 'Minh Khang',
-      rating: 5,
-      fit: 'Mua size M - vua nguoi',
-      text: 'Vai ao dung form, vai mem va mau ngoai doi dep hon anh. Giac mac gon nhung khong bi chat.',
-    },
-    {
-      name: 'Quoc Bao',
-      rating: 4,
-      fit: 'Mua size L - thoai mai',
-      text: 'Chat vai on, phan co ao dung dang. Minh cao 1m74 nang 70kg mac L la hop.',
-    },
-  ]
+  const scrollToReviewsPanel = () => {
+    requestAnimationFrame(() => {
+      reviewsPanelRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
+
+  const uploadReviewImages = async () => {
+    const uploadedUrls = await Promise.all(
+      reviewImages.map(async (image) => {
+        if (!image.file) return image.url || ''
+
+        const uploadResult = await uploadImageToCloudinary(image.file, 'REVIEW')
+        const imageUrl = uploadResult.secure_url || uploadResult.url
+
+        if (!imageUrl) throw new Error('Cloudinary khong tra ve link anh danh gia.')
+
+        return imageUrl
+      }),
+    )
+
+    return uploadedUrls.filter(Boolean)
+  }
+
+  const handleReviewSubmit = async (event) => {
+    event.preventDefault()
+
+    if (!productId) return
+
+    if (!userId) {
+      navigate('/login', {
+        state: {
+          message: 'Vui long dang nhap de danh gia san pham.',
+        },
+      })
+      return
+    }
+
+    setIsReviewSubmitting(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const imageUrls = await uploadReviewImages()
+      const payload = {
+        productId,
+        userId,
+        rating: clampRating(reviewRating),
+        comment: reviewText.trim(),
+        images: imageUrls,
+      }
+
+      if (userReviewId) {
+        await reviewApi.updateReview(userReviewId, payload)
+      } else {
+        await reviewApi.createReview(payload)
+      }
+
+      skipNextReviewAutofillRef.current = true
+      await reloadReviews()
+      resetReviewForm()
+      setSuccessMessage(userReviewId ? 'Da cap nhat danh gia cua ban.' : 'Da gui danh gia cua ban.')
+      setActiveDetailTab('reviews')
+      scrollToReviewsPanel()
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the gui danh gia.'))
+    } finally {
+      setIsReviewSubmitting(false)
+    }
+  }
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!reviewId || deletingReviewId) return
+
+    setDeletingReviewId(reviewId)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await reviewApi.deleteReview(reviewId)
+      await reloadReviews()
+
+      if (reviewId === userReviewId) resetReviewForm()
+
+      setSuccessMessage('Da xoa danh gia.')
+      setActiveDetailTab('reviews')
+      scrollToReviewsPanel()
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Khong the xoa danh gia.'))
+    } finally {
+      setDeletingReviewId('')
+    }
+  }
+
+  const reviewSamples = reviews.map((review) => ({
+    name: getReviewUserName(review),
+    rating: clampRating(review.rating),
+    fit: formatReviewDate(getCreatedAt(review)),
+    text: review.comment || review.content || review.text || '',
+  }))
+
+  const renderReviewForm = () => (
+    <form onSubmit={handleReviewSubmit} className="rounded-2xl border border-emerald-100 bg-emerald-950 p-5 text-white shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">
+        {userReviewId ? 'Cap nhat danh gia' : 'Viet danh gia'}
+      </p>
+      <h2 className="mt-2 text-xl font-black">Chia se trai nghiem cua ban</h2>
+
+      <div className="mt-5">
+        <p className="text-sm font-bold text-white/80">Cham sao</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {[0, 1, 2, 3, 4, 5].map((rating) => (
+            <button
+              key={rating}
+              type="button"
+              onClick={() => setReviewRating(rating)}
+              className={`flex h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-black transition-colors ${
+                reviewRating === rating
+                  ? 'border-amber-300 bg-amber-300 text-emerald-950'
+                  : 'border-white/10 bg-white/10 text-white/70 hover:bg-white/15'
+              }`}
+              aria-label={`Chon ${rating} sao`}
+            >
+              {rating}
+              <Star className={`h-4 w-4 ${rating > 0 ? 'fill-current' : ''}`} strokeWidth={1.5} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="mt-5 grid gap-2">
+        <span className="text-sm font-bold text-white/80">Binh luan</span>
+        <textarea
+          value={reviewText}
+          onChange={(event) => setReviewText(event.target.value)}
+          rows={5}
+          placeholder="San pham mac len the nao, form co vua khong..."
+          className="resize-none rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-white/35 focus:border-emerald-300"
+        />
+      </label>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-white/80">Anh danh gia</p>
+          <span className="text-xs text-white/45">{reviewImages.length}/{REVIEW_IMAGE_LIMIT} anh</span>
+        </div>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {reviewImages.map((image) => (
+            <div key={image.id} className="group relative aspect-square overflow-hidden rounded-xl bg-white/10">
+              <img src={image.previewUrl} alt="" className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeReviewImage(image.id)}
+                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-950/75 text-xs font-black text-white opacity-0 transition-opacity group-hover:opacity-100"
+                aria-label="Xoa anh"
+              >
+                x
+              </button>
+            </div>
+          ))}
+          {reviewImages.length < REVIEW_IMAGE_LIMIT && (
+            <button
+              type="button"
+              onClick={() => reviewImageInputRef.current?.click()}
+              className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-emerald-300/70 bg-white/8 text-emerald-100 transition-colors hover:bg-white/14"
+              aria-label="Them anh danh gia"
+            >
+              <ImagePlus className="h-6 w-6" strokeWidth={1.7} />
+            </button>
+          )}
+        </div>
+        <input
+          ref={reviewImageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleReviewImagesChange}
+          className="sr-only"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={isReviewSubmitting}
+        className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 text-sm font-black uppercase tracking-[0.12em] text-emerald-950 transition-colors hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-70"
+      >
+        {isReviewSubmitting && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.8} />}
+        {userReviewId ? 'Cap nhat danh gia' : 'Gui danh gia'}
+      </button>
+      {!userId && (
+        <p className="mt-3 text-xs leading-5 text-white/45">Ban can dang nhap de gui danh gia.</p>
+      )}
+    </form>
+  )
 
   if (isLoading) {
     return (
@@ -556,7 +886,7 @@ function ProductDetail() {
                 ['description', 'Mo ta san pham'],
                 ['material', 'Chat lieu'],
                 ['care', 'Huong dan bao quan'],
-                ['reviews', 'Danh gia (128)'],
+                ['reviews', `Danh gia (${totalReviews})`],
               ].map(([tabId, label]) => (
                 <button
                   key={tabId}
@@ -635,47 +965,133 @@ function ProductDetail() {
             )}
 
             {activeDetailTab === 'reviews' && (
-              <div className="grid gap-5 pt-5">
+              <div ref={reviewsPanelRef} className="grid gap-5 pt-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-xl font-black text-emerald-950">Khach hang noi gi</h2>
-                    <p className="mt-1 text-sm text-neutral-500">Tong hop mot vai danh gia mau tren giao dien.</p>
+                    <p className="mt-1 text-sm text-neutral-500">Danh gia thuc te tu khach hang da trai nghiem san pham.</p>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3">
-                    <span className="text-3xl font-black text-emerald-950">4.8</span>
+                    <span className="text-3xl font-black text-emerald-950">{averageRating.toFixed(1)}</span>
                     <div>
                       <div className="flex text-amber-400">
                         {[1, 2, 3, 4, 5].map((star) => (
-                          <Star key={star} className="h-4 w-4 fill-current" strokeWidth={1.6} />
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${star <= Math.round(averageRating) ? 'fill-current' : 'text-neutral-200'}`}
+                            strokeWidth={1.6}
+                          />
                         ))}
                       </div>
-                      <p className="text-xs font-semibold text-emerald-900/55">128 danh gia</p>
+                      <p className="text-xs font-semibold text-emerald-900/55">{totalReviews} danh gia</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {reviewSamples.map((review) => (
-                    <article key={review.name} className="rounded-xl border border-neutral-100 bg-neutral-50/70 p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="font-black text-emerald-950">{review.name}</h3>
-                          <p className="mt-1 text-xs font-semibold text-emerald-800/60">{review.fit}</p>
-                        </div>
-                        <span className="flex whitespace-nowrap text-amber-400">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-4 w-4 ${star <= review.rating ? 'fill-current' : 'text-neutral-200'}`}
-                              strokeWidth={1.6}
-                            />
-                          ))}
+                <div className="grid gap-2 rounded-xl border border-neutral-100 bg-neutral-50/70 p-4">
+                  {[5, 4, 3, 2, 1, 0].map((rating) => {
+                    const count = Number(reviewSummary.ratingCounts?.[String(rating)] || 0)
+                    const percent = totalReviews ? Math.round((count / totalReviews) * 100) : 0
+
+                    return (
+                      <div key={rating} className="grid grid-cols-[52px_1fr_42px] items-center gap-3 text-xs font-semibold text-neutral-600">
+                        <span className="flex items-center gap-1 text-emerald-950">
+                          {rating}
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" strokeWidth={1.6} />
                         </span>
+                        <div className="h-2 overflow-hidden rounded-full bg-white">
+                          <div className="h-full rounded-full bg-amber-400" style={{ width: `${percent}%` }} />
+                        </div>
+                        <span className="text-right">{count}</span>
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-neutral-600">{review.text}</p>
-                    </article>
-                  ))}
+                    )
+                  })}
                 </div>
+
+                {isReviewsLoading && (
+                  <div className="flex items-center justify-center rounded-xl border border-neutral-100 bg-white py-8 text-emerald-800">
+                    <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.8} />
+                  </div>
+                )}
+
+                {!isReviewsLoading && reviewErrorMessage && (
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                    {reviewErrorMessage}
+                  </div>
+                )}
+
+                {!isReviewsLoading && !reviewErrorMessage && reviews.length === 0 && (
+                  <div className="rounded-xl border border-neutral-100 bg-neutral-50/70 px-4 py-8 text-center text-sm font-semibold text-neutral-500">
+                    San pham chua co danh gia nao.
+                  </div>
+                )}
+
+                {!isReviewsLoading && !reviewErrorMessage && reviews.length > 0 && (
+                  <div className="space-y-3">
+                    {reviews.map((review) => {
+                      const reviewId = getReviewId(review)
+                      const rating = clampRating(review.rating)
+                      const isOwnReview = userId && String(getReviewUserId(review)) === String(userId)
+                      const images = getReviewImages(review)
+                      const comment = review.comment || review.content || review.text || ''
+
+                      return (
+                        <article key={reviewId || `${getReviewUserId(review)}-${getCreatedAt(review)}`} className="rounded-xl border border-neutral-100 bg-neutral-50/70 p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h3 className="font-black text-emerald-950">{getReviewUserName(review)}</h3>
+                              <p className="mt-1 text-xs font-semibold text-emerald-800/60">{formatReviewDate(getCreatedAt(review))}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="flex whitespace-nowrap text-amber-400">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`h-4 w-4 ${star <= rating ? 'fill-current' : 'text-neutral-200'}`}
+                                    strokeWidth={1.6}
+                                  />
+                                ))}
+                              </span>
+                              {isOwnReview && reviewId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteReview(reviewId)}
+                                  disabled={deletingReviewId === reviewId}
+                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-red-100 bg-white text-red-500 transition-colors hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                                  aria-label="Xoa danh gia"
+                                >
+                                  {deletingReviewId === reviewId ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.8} />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" strokeWidth={1.8} />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {comment && <p className="mt-3 text-sm leading-6 text-neutral-600">{comment}</p>}
+                          {images.length > 0 && (
+                            <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                              {images.map((imageUrl, index) => (
+                                <a
+                                  key={`${imageUrl}-${index}`}
+                                  href={imageUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="aspect-square overflow-hidden rounded-lg border border-white bg-white"
+                                >
+                                  <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {renderReviewForm()}
               </div>
             )}
           </section>
@@ -699,17 +1115,6 @@ function ProductDetail() {
                   {formatCurrency(product.price)}
                 </span>
               )}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-500">
-              <div className="flex items-center gap-2">
-                <span className="flex text-amber-400">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className="h-4 w-4 fill-current" strokeWidth={1.6} />
-                  ))}
-                </span>
-                <span>4.8 (128 danh gia)</span>
-              </div>
-              <span>Da ban 256</span>
             </div>
           </div>
 
@@ -1001,7 +1406,7 @@ function ProductDetail() {
               </div>
             </div>
 
-            <form onSubmit={handlePreviewReviewSubmit} className="rounded-2xl border border-emerald-100 bg-emerald-950 p-5 text-white shadow-sm">
+            <form onSubmit={handleReviewSubmit} className="rounded-2xl border border-emerald-100 bg-emerald-950 p-5 text-white shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">Viet danh gia</p>
               <h2 className="mt-2 text-xl font-black">Chia se trai nghiem cua ban</h2>
 
@@ -1189,7 +1594,7 @@ function ProductDetail() {
           </div>
         </div>
 
-        <form onSubmit={handlePreviewReviewSubmit} className="rounded-3xl border border-emerald-100 bg-emerald-950 p-5 text-white shadow-sm sm:p-6">
+        <form onSubmit={handleReviewSubmit} className="rounded-3xl border border-emerald-100 bg-emerald-950 p-5 text-white shadow-sm sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">
             Viet danh gia
           </p>

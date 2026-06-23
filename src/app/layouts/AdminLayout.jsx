@@ -17,6 +17,10 @@ import {
   Truck,
   UserRound,
   Users,
+  Bell,
+  AlertTriangle,
+  Star,
+  RefreshCw,
 } from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
@@ -24,15 +28,15 @@ import { authApi } from '../../features/auth'
 import { tokenStorage } from '../../shared/api'
 
 const adminNavItems = [
-  { to: '/admin', label: 'Tong quan', icon: LayoutDashboard },
-  { to: '/admin/categories', label: 'Danh muc', icon: Tags },
-  { to: '/admin/products', label: 'San pham', icon: Package },
+  { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard },
+  { to: '/admin/categories', label: 'Danh mục', icon: Tags },
+  { to: '/admin/products', label: 'Sản phẩm', icon: Package },
   { to: '/admin/banners', label: 'Banner', icon: Image },
   { to: '/admin/promotion-banners', label: 'Promotion', icon: Megaphone },
-  { to: '/admin/orders', label: 'Don hang', icon: ShoppingBag },
+  { to: '/admin/orders', label: 'Đơn hàng', icon: ShoppingBag },
   { to: '/admin/shipping-rules', label: 'Phi ship', icon: Truck },
-  { to: '/admin/users', label: 'Khach hang', icon: Users },
-  { to: '/admin/roles', label: 'Roles', icon: ShieldCheck },
+  { to: '/admin/users', label: 'Khách hàng', icon: Users },
+  { to: '/admin/roles', label: 'Vai trò', icon: ShieldCheck },
 ]
 
 function getDisplayName(user) {
@@ -46,10 +50,66 @@ function getInitial(user) {
 function AdminLayout() {
   const navigate = useNavigate()
   const user = tokenStorage.getUser()
+  
+  // Account Menu States & Ref
   const accountMenuRef = useRef(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  // Notification Menu States & Ref (Facebook Style)
+  const notifMenuRef = useRef(null)
+  const [notifMenuOpen, setNotifMenuOpen] = useState(false)
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'order', text: 'Có 5 đơn hàng mới cần xử lý', time: '10 phút trước', isUnread: true },
+    { id: 2, type: 'stock', text: 'Sản phẩm "Polo Basic XL" sắp hết hàng (còn 3 cái)', time: '30 phút trước', isUnread: true },
+    { id: 3, type: 'review', text: 'Có 2 đánh giá 5 sao mới cho Polo Premium', time: '2 giờ trước', isUnread: false },
+    { id: 4, type: 'return', text: 'Khách hàng Nguyễn Văn A yêu cầu hoàn trả đơn #PM0985', time: '1 ngày trước', isUnread: false },
+  ])
+
+  // Count unread notifications
+  const unreadNotifsCount = notifications.filter((n) => n.isUnread).length
+
+  // Helper functions for notifications
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })))
+  }
+
+  const toggleNotifRead = (id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n))
+    )
+  }
+
+  const getNotifIcon = (type) => {
+    switch (type) {
+      case 'order':
+        return ShoppingBag
+      case 'stock':
+        return AlertTriangle
+      case 'review':
+        return Star
+      case 'return':
+        return RefreshCw
+      default:
+        return Bell
+    }
+  }
+
+  const getNotifColor = (type) => {
+    switch (type) {
+      case 'order':
+        return 'bg-emerald-500/10 text-emerald-600'
+      case 'stock':
+        return 'bg-amber-500/10 text-amber-600'
+      case 'review':
+        return 'bg-yellow-500/10 text-yellow-600'
+      case 'return':
+        return 'bg-rose-500/10 text-rose-600'
+      default:
+        return 'bg-neutral-500/10 text-neutral-600'
+    }
+  }
 
   useEffect(() => {
     if (!accountMenuOpen) return undefined
@@ -66,6 +126,22 @@ function AdminLayout() {
       document.removeEventListener('pointerdown', handlePointerDown)
     }
   }, [accountMenuOpen])
+
+  useEffect(() => {
+    if (!notifMenuOpen) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!notifMenuRef.current?.contains(event.target)) {
+        setNotifMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [notifMenuOpen])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -200,6 +276,92 @@ function AdminLayout() {
             </button>
 
             <div className="ml-auto flex items-center gap-4">
+              {/* Notifications Dropdown (Facebook Style) */}
+              <div ref={notifMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNotifMenuOpen((current) => !current)}
+                  className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-emerald-800 shadow-sm transition-colors hover:bg-emerald-50 hover:text-emerald-950 cursor-pointer"
+                  aria-label="Thông báo"
+                >
+                  <Bell size={18} strokeWidth={2} />
+                  {unreadNotifsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-black text-white ring-2 ring-white animate-bounce">
+                      {unreadNotifsCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifMenuOpen && (
+                  <div className="absolute right-0 top-14 z-50 w-80 overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-[0_24px_70px_rgba(6,78,59,0.16)]">
+                    {/* Header */}
+                    <div className="border-b border-emerald-100 bg-emerald-50/70 px-5 py-4 flex items-center justify-between">
+                      <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                        Thông báo mới
+                      </h3>
+                      {unreadNotifsCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-3xs font-black text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer"
+                        >
+                          Đọc tất cả
+                        </button>
+                      )}
+                    </div>
+
+                    {/* List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-neutral-100">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-xs font-semibold text-emerald-900/40">
+                          Không có thông báo mới nào
+                        </div>
+                      ) : (
+                        notifications.map((notif) => {
+                          const NotifIcon = getNotifIcon(notif.type)
+                          const colorClass = getNotifColor(notif.type)
+                          return (
+                            <div
+                              key={notif.id}
+                              onClick={() => toggleNotifRead(notif.id)}
+                              className={`flex items-start gap-3 px-4 py-3.5 hover:bg-neutral-50 transition-colors cursor-pointer ${
+                                notif.isUnread ? 'bg-emerald-50/10' : ''
+                              }`}
+                            >
+                              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${colorClass}`}>
+                                <NotifIcon size={15} strokeWidth={2.3} />
+                              </span>
+                              <div className="flex-1 space-y-0.5">
+                                <p className="text-xs font-bold text-neutral-800 leading-tight">
+                                  {notif.text}
+                                </p>
+                                <p className="text-3xs font-semibold text-neutral-400">
+                                  {notif.time}
+                                </p>
+                              </div>
+                              {notif.isUnread && (
+                                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-600 self-center" />
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="border-t border-emerald-100 bg-emerald-50/20 p-3 text-center">
+                      <Link
+                        to="/admin/orders"
+                        onClick={() => setNotifMenuOpen(false)}
+                        className="block text-2xs font-black text-emerald-800 hover:text-emerald-950 transition-colors"
+                      >
+                        Xem tất cả đơn hàng
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Profile Menu */}
               <div ref={accountMenuRef} className="relative">
                 <button
                   type="button"

@@ -288,6 +288,10 @@ function Cart() {
   const isBuyNowCheckout = new URLSearchParams(location.search).get('mode') === 'buy-now'
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [items, setItems] = useState(() => (isBuyNowCheckout ? [readBuyNowCheckoutItem()].filter(Boolean) : cartStorage.getItems()))
+  const [selectedIndexes, setSelectedIndexes] = useState(() => {
+    const initial = isBuyNowCheckout ? [readBuyNowCheckoutItem()].filter(Boolean) : cartStorage.getItems()
+    return new Set(initial.map((_, i) => i))
+  })
   const [checkoutForm, setCheckoutForm] = useState(() => getCheckoutForm(tokenStorage.getUser()))
   const [paymentMethod, setPaymentMethod] = useState('COD')
   const [profileMessage, setProfileMessage] = useState('')
@@ -326,7 +330,9 @@ function Cart() {
     const syncCart = async () => {
       if (isBuyNowCheckout) {
         const buyNowItem = readBuyNowCheckoutItem()
-        setItems(buyNowItem ? [buyNowItem] : [])
+        const next = buyNowItem ? [buyNowItem] : []
+        setItems(next)
+        setSelectedIndexes(new Set(next.map((_, i) => i)))
         return
       }
 
@@ -335,13 +341,17 @@ function Cart() {
       }
 
       if (!userId) {
-        setItems(cartStorage.getItems())
+        const next = cartStorage.getItems()
+        setItems(next)
+        setSelectedIndexes(new Set(next.map((_, i) => i)))
         return
       }
 
       try {
         const cart = await cartApi.getCart(userId)
-        setItems(normalizeCartItems(cart))
+        const next = normalizeCartItems(cart)
+        setItems(next)
+        setSelectedIndexes(new Set(next.map((_, i) => i)))
         setErrorMessage('')
       } catch (error) {
         setErrorMessage(getApiMessage(error, 'Khong the tai gio hang.'))
@@ -586,9 +596,33 @@ function Cart() {
     })
   }, [checkoutForm.ward, checkoutForm.wardCode, wards])
 
+  const selectedItems = useMemo(() => items.filter((_, i) => selectedIndexes.has(i)), [items, selectedIndexes])
+  const isAllSelected = items.length > 0 && selectedItems.length === items.length
+  const isPartialSelected = selectedItems.length > 0 && selectedItems.length < items.length
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIndexes(new Set())
+    } else {
+      setSelectedIndexes(new Set(items.map((_, i) => i)))
+    }
+  }
+
+  const handleToggleSelectItem = (index) => {
+    setSelectedIndexes((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) {
+        next.delete(index)
+      } else {
+        next.add(index)
+      }
+      return next
+    })
+  }
+
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
-    [items],
+    () => selectedItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
+    [selectedItems],
   )
   const shippingFee = calculateShippingFee(shippingRule, subtotal)
   const freeShippingGap = getFreeShippingProgress(shippingRule, subtotal)
@@ -738,7 +772,10 @@ function Cart() {
   }
 
   const handleCheckout = async () => {
-    if (!items.length) return
+    if (!selectedItems.length) {
+      setErrorMessage('Vui long chon it nhat mot san pham de dat hang.')
+      return
+    }
 
     if (isLoadingShippingRule) {
       setErrorMessage('Dang tinh phi van chuyen, vui long thu lai sau giay lat.')
@@ -747,6 +784,7 @@ function Cart() {
 
     const selectedPaymentMethod = paymentMethods.find((method) => method.value === paymentMethod) || paymentMethods[0]
     const isGuestCheckout = !userId
+    const checkoutItems = selectedItems
     const validationError = getAddressValidationError(checkoutForm, { isGuest: isGuestCheckout })
 
     if (validationError) {
@@ -769,7 +807,7 @@ function Cart() {
           receiverName: checkoutForm.fullName.trim(),
           receiverPhone: checkoutForm.phoneNumber.trim(),
           receiverAddress: getReceiverAddress(checkoutForm),
-          items: getCreateOrderItems(items),
+          items: getCreateOrderItems(checkoutItems),
           discountAmount: discount,
           paymentMethod: selectedPaymentMethod.value,
           note: checkoutForm.note.trim(),
@@ -783,11 +821,12 @@ function Cart() {
           cartStorage.clear()
         }
         setItems([])
+        setSelectedIndexes(new Set())
 
         if (selectedPaymentMethod.value === 'PAYOS' && hasPayosPayment(createdOrder)) {
           const paymentPayload = {
             order: createdOrder,
-            items,
+            items: checkoutItems,
           }
 
           sessionStorage.setItem('poloman:checkout-payment', JSON.stringify(paymentPayload))
@@ -847,7 +886,7 @@ function Cart() {
         receiverName: checkoutForm.fullName.trim(),
         receiverPhone: checkoutForm.phoneNumber.trim(),
         receiverAddress: getReceiverAddress(checkoutForm),
-        items: getCreateOrderItems(items),
+        items: getCreateOrderItems(checkoutItems),
         discountAmount: discount,
         paymentMethod: selectedPaymentMethod.value,
         note: checkoutForm.note.trim(),
@@ -860,11 +899,12 @@ function Cart() {
         cartStorage.clear()
       }
       setItems([])
+      setSelectedIndexes(new Set())
 
       if (selectedPaymentMethod.value === 'PAYOS' && hasPayosPayment(createdOrder)) {
         const paymentPayload = {
           order: createdOrder,
-          items: Array.isArray(createdOrder?.items) && createdOrder.items.length ? createdOrder.items : items,
+          items: Array.isArray(createdOrder?.items) && createdOrder.items.length ? createdOrder.items : checkoutItems,
         }
 
         sessionStorage.setItem('poloman:checkout-payment', JSON.stringify(paymentPayload))
@@ -926,10 +966,27 @@ function Cart() {
         <section className="space-y-5">
           <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-[0_16px_45px_rgba(15,76,58,0.08)] sm:p-6">
             <div className="flex items-center gap-3 border-b border-emerald-100 pb-5">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-800 text-white">
-                <Check className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                aria-label={isAllSelected ? 'Bo chon tat ca' : 'Chon tat ca'}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                  isAllSelected
+                    ? 'border-emerald-800 bg-emerald-800 text-white'
+                    : isPartialSelected
+                      ? 'border-emerald-800 bg-emerald-800/20 text-emerald-800'
+                      : 'border-emerald-300 bg-white text-transparent hover:border-emerald-600'
+                }`}
+              >
+                {isAllSelected ? (
+                  <Check className="h-4 w-4" />
+                ) : isPartialSelected ? (
+                  <span className="block h-0.5 w-3 rounded bg-emerald-800" />
+                ) : null}
+              </button>
+              <span className="text-sm font-black text-emerald-900">
+                Chon tat ca ({selectedItems.length}/{items.length})
               </span>
-              <span className="text-sm font-black text-emerald-900">Chon tat ca ({items.length})</span>
             </div>
 
             {items.length ? (
@@ -948,9 +1005,18 @@ function Cart() {
                     className="grid gap-4 rounded-xl border border-emerald-100 bg-white p-3 transition-shadow hover:shadow-[0_12px_30px_rgba(15,76,58,0.08)] lg:grid-cols-[minmax(280px,1fr)_140px_150px_150px] lg:items-center"
                   >
                     <div className="grid grid-cols-[28px_96px_minmax(0,1fr)] items-center gap-4">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-800 text-white">
-                        <Check className="h-3.5 w-3.5" />
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectItem(index)}
+                        aria-label={selectedIndexes.has(index) ? 'Bo chon san pham' : 'Chon san pham'}
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                          selectedIndexes.has(index)
+                            ? 'border-emerald-800 bg-emerald-800 text-white'
+                            : 'border-emerald-300 bg-white text-transparent hover:border-emerald-600'
+                        }`}
+                      >
+                        {selectedIndexes.has(index) && <Check className="h-3.5 w-3.5" />}
+                      </button>
                       <div className="h-28 w-24 overflow-hidden rounded-xl bg-emerald-50">
                         {item.image ? (
                           <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
@@ -1329,7 +1395,7 @@ function Cart() {
             <button
               type="button"
               onClick={handleCheckout}
-              disabled={!items.length || isCheckingOut || isLoadingShippingRule}
+              disabled={!selectedItems.length || isCheckingOut || isLoadingShippingRule}
               className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-emerald-800 px-5 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Lock className="h-4 w-4" />

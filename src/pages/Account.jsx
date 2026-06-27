@@ -91,8 +91,7 @@ function Account() {
     () => [
       { label: 'Ten hien thi', value: getDisplayName(user), icon: UserRound },
       { label: 'Email', value: user?.email || 'Chua cap nhat', icon: Mail },
-      { label: 'So dien thoai', value: user?.phoneNumber || 'Chua cap nhat', icon: Phone },
-      { label: 'Ma tai khoan', value: user?.id || user?.userId || 'Chua cap nhat', icon: KeyRound },
+      { label: 'So dien thoai', value: user?.phoneNumber || 'Chua cap nhat', icon: Phone }
     ],
     [user],
   )

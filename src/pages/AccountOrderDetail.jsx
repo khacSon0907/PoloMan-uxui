@@ -9,8 +9,10 @@ import {
   orderApi,
 } from '../features/order'
 import { formatCurrency, getUserId } from '../features/product'
+import { getRefundStatusLabel, getRefundTypeLabel, refundApi } from '../features/refund'
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
+import { uploadImageToCloudinary } from '../shared/services/cloudinaryUpload'
 
 function formatDate(value) {
   if (!value) return 'Chua cap nhat'
@@ -56,6 +58,35 @@ function getItemKey(item, index) {
   return [item.productId, item.colorId, item.sizeId, index].filter(Boolean).join('-')
 }
 
+function getItemProductId(item) {
+  return item?.productId || item?.product?.id || item?.product?._id || ''
+}
+
+function getItemSizeId(item) {
+  return item?.sizeId || item?.size?.id || item?.size?._id || ''
+}
+
+function getItemSizeOptions(item) {
+  const options = item?.availableSizes || item?.sizes || item?.product?.sizes || item?.productSizes || []
+  const normalized = Array.isArray(options) ? options : []
+  const currentSizeId = getItemSizeId(item)
+  const currentSizeName = item?.sizeName || item?.size?.name || currentSizeId
+  const merged = currentSizeId
+    ? [{ id: currentSizeId, name: currentSizeName, stock: item?.stock }, ...normalized]
+    : normalized
+
+  return merged.reduce((acc, size) => {
+    const id = size?.id || size?._id || size?.sizeId || size?.value || size
+    if (!id || acc.some((entry) => String(entry.id) === String(id))) return acc
+    acc.push({
+      id,
+      name: size?.name || size?.sizeName || size?.label || String(id),
+      stock: size?.stock ?? size?.quantity ?? size?.availableQuantity,
+    })
+    return acc
+  }, [])
+}
+
 function AccountOrderDetail() {
   const { orderId } = useParams()
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
@@ -64,10 +95,41 @@ function AccountOrderDetail() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [refundModalOpen, setRefundModalOpen] = useState(false)
+  const [refundForm, setRefundForm] = useState({
+    type: 'RETURN',
+    reason: '',
+    refundAmount: '',
+    productKey: '',
+    currentSizeId: '',
+    requestedSizeId: '',
+    imageUrlsText: '',
+    bankCode: '',
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+  })
+  const [refundImages, setRefundImages] = useState([])
+  const [isUploadingRefundImages, setIsUploadingRefundImages] = useState(false)
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState(false)
+  const [myRefunds, setMyRefunds] = useState([])
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userId = getUserId(authSnapshot.user)
   const items = useMemo(() => (Array.isArray(order?.items) ? order.items : []), [order])
+  const orderRefunds = useMemo(() => {
+    const orderIdentifier = String(order?.id || order?.orderId || order?.orderCode || orderId || '')
+    if (!orderIdentifier) return []
+
+    return myRefunds.filter((refund) => String(refund?.orderId || '') === orderIdentifier)
+  }, [myRefunds, order, orderId])
+  const canRequestRefund = useMemo(() => {
+    const orderStatus = String(order?.status || '').toUpperCase()
+    const allowedStatuses = ['CONFIRMED', 'SHIPPING', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'SUCCESS']
+    const blockedStatuses = ['PENDING', 'CANCELLED', 'CANCELED', 'REFUNDED', 'RETURN_REQUESTED', 'RETURN_APPROVED']
+
+    return allowedStatuses.includes(orderStatus) && !blockedStatuses.includes(orderStatus)
+  }, [order])
 
   usePageMeta({
     title: `${order?.orderCode || orderId || 'Don hang'} | PoloMan`,
@@ -114,6 +176,10 @@ function AccountOrderDetail() {
         }
 
         setOrder(data)
+        return refundApi.getMyRefunds().catch(() => [])
+      })
+      .then((list) => {
+        if (isMounted && Array.isArray(list)) setMyRefunds(list)
       })
       .catch((error) => {
         if (isMounted) setErrorMessage(getApiMessage(error, 'Khong the tai chi tiet don hang.'))
@@ -139,6 +205,11 @@ function AccountOrderDetail() {
     setOrder(data)
   }
 
+  const reloadMyRefunds = async () => {
+    const list = await refundApi.getMyRefunds()
+    setMyRefunds(list)
+  }
+
   const handleCancelOrder = async (event) => {
     event.preventDefault()
 
@@ -162,6 +233,125 @@ function AccountOrderDetail() {
       )
     } finally {
       setIsCancelling(false)
+    }
+  }
+
+  const handleRefundSubmit = async (event) => {
+    event.preventDefault()
+
+    if (!order || !canRequestRefund) return
+    const bankPayload = {
+      bankCode: refundForm.bankCode.trim(),
+      bankName: refundForm.bankName.trim(),
+      accountNumber: refundForm.accountNumber.trim(),
+      accountName: refundForm.accountName.trim(),
+    }
+
+    if (!refundForm.reason.trim()) {
+      setErrorMessage('Vui lòng nhập lý do trả hàng / đổi size.')
+      setSuccessMessage('')
+      return
+    }
+
+    if (!bankPayload.bankName || !bankPayload.bankCode || !bankPayload.accountNumber || !bankPayload.accountName) {
+      setErrorMessage('Vui lòng nhập đầy đủ thông tin ngân hàng.')
+      setSuccessMessage('')
+      return
+    }
+
+    const orderIdentifier = order.id || order.orderId || order.orderCode || orderId
+    const amountText = String(refundForm.refundAmount || '').trim()
+    const amount = amountText ? Number(amountText) : Number(order.totalAmount || 0)
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('Số tiền cần hoàn phải lớn hơn 0.')
+      setSuccessMessage('')
+      return
+    }
+
+    const selectedItem = items.find((item, index) => getItemKey(item, index) === refundForm.productKey)
+    if (refundForm.type === 'EXCHANGE_SIZE') {
+      if (!selectedItem || !refundForm.currentSizeId || !refundForm.requestedSizeId) {
+        setErrorMessage('Vui lòng chọn sản phẩm, size hiện tại và size muốn đổi.')
+        setSuccessMessage('')
+        return
+      }
+      if (String(refundForm.currentSizeId) === String(refundForm.requestedSizeId)) {
+        setErrorMessage('Size muốn đổi phải khác size hiện tại.')
+        setSuccessMessage('')
+        return
+      }
+    }
+
+    setIsSubmittingRefund(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const typedImageUrls = refundForm.imageUrlsText
+        .split('\n')
+        .map((url) => url.trim())
+        .filter(Boolean)
+      const payload = {
+        orderId: orderIdentifier,
+        type: refundForm.type,
+        refundAmount: amount,
+        reason: refundForm.reason.trim(),
+        imageUrls: [...refundImages.map((image) => image.url), ...typedImageUrls],
+        ...bankPayload,
+      }
+
+      if (refundForm.type === 'EXCHANGE_SIZE') {
+        payload.productId = getItemProductId(selectedItem)
+        payload.currentSizeId = refundForm.currentSizeId
+        payload.requestedSizeId = refundForm.requestedSizeId
+      }
+
+      await refundApi.requestRefund(payload)
+      await Promise.all([reloadOrder(), reloadMyRefunds()])
+      setRefundModalOpen(false)
+      setRefundForm({
+        type: 'RETURN',
+        reason: '',
+        refundAmount: '',
+        productKey: '',
+        currentSizeId: '',
+        requestedSizeId: '',
+        imageUrlsText: '',
+        bankCode: '',
+        bankName: '',
+        accountNumber: '',
+        accountName: '',
+      })
+      setRefundImages([])
+      setSuccessMessage('Đã gửi yêu cầu trả hàng / đổi size thành công.')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Không thể gửi yêu cầu trả hàng / đổi size.'))
+    } finally {
+      setIsSubmittingRefund(false)
+    }
+  }
+
+  const handleRefundImageUpload = async (event) => {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+
+    setIsUploadingRefundImages(true)
+    setErrorMessage('')
+
+    try {
+      const uploadedImages = await Promise.all(
+        files.map(async (file) => {
+          const data = await uploadImageToCloudinary(file, 'REFUND')
+          return { url: data.secure_url || data.url, name: file.name }
+        }),
+      )
+      setRefundImages((current) => [...current, ...uploadedImages.filter((image) => image.url)])
+    } catch (error) {
+      setErrorMessage(error?.message || 'Không thể tải ảnh bằng chứng.')
+    } finally {
+      setIsUploadingRefundImages(false)
+      event.target.value = ''
     }
   }
 
@@ -325,6 +515,50 @@ function AccountOrderDetail() {
             </div>
 
             <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-emerald-950">Hoan tien</h2>
+                  <p className="mt-1 text-sm leading-6 text-emerald-900/60">
+                    Yeu cau hoan tien ap dung cho don hang da thanh toan qua PayOS.
+                  </p>
+                </div>
+                {orderRefunds.length > 0 && (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                    {orderRefunds.length} yeu cau
+                  </span>
+                )}
+              </div>
+
+              {orderRefunds.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {orderRefunds.slice(0, 2).map((refund, index) => (
+                    <div key={refund?.id || refund?.refundId || index} className="rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">
+                      <p className="font-black text-neutral-950">{getRefundTypeLabel(refund.type)} - {formatCurrency(refund.refundAmount)}</p>
+                      <p className="mt-1">Trạng thái: <span className="font-bold">{getRefundStatusLabel(refund.status)}</span></p>
+                    </div>
+                  ))}
+                  <Link to="/account/refunds" className="inline-flex text-sm font-bold text-emerald-700 hover:text-emerald-900">
+                    Xem tất cả yêu cầu trả/đổi hàng
+                  </Link>
+                </div>
+              )}
+
+              {canRequestRefund ? (
+                <button
+                  type="button"
+                  onClick={() => setRefundModalOpen(true)}
+                  className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-800"
+                >
+                  Trả hàng / Đổi size
+                </button>
+              ) : (
+                <p className="mt-4 rounded-xl bg-neutral-50 px-4 py-3 text-sm font-semibold text-neutral-500">
+                  Đơn hàng chưa đủ điều kiện gửi yêu cầu trả hàng / đổi size. Nếu đơn chưa được admin xác nhận, bạn dùng flow hủy đơn.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-black text-emerald-950">Van chuyen</h2>
               <div className="mt-4 space-y-3 text-sm text-emerald-900/70">
                 <div>
@@ -370,6 +604,220 @@ function AccountOrderDetail() {
           >
             Ve lich su don hang
           </Link>
+        </div>
+      )}
+
+      {refundModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/40 px-4 backdrop-blur-sm">
+          <form onSubmit={handleRefundSubmit} className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Yeu cau hoan tien</p>
+            <h2 className="mt-2 text-2xl font-black text-emerald-950">
+              Don hang #{order?.orderCode || order?.id || orderId}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-emerald-900/65">
+              Neu bo trong so tien hoan, he thong se gui yeu cau hoan toan bo gia tri don hang.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {[
+                ['RETURN', 'Trả hàng hoàn tiền'],
+                ['EXCHANGE_SIZE', 'Đổi size'],
+              ].map(([value, label]) => (
+                <label key={value} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 text-sm font-black ${refundForm.type === value ? 'border-emerald-600 bg-emerald-50 text-emerald-900' : 'border-emerald-100 text-neutral-600'}`}>
+                  <input
+                    type="radio"
+                    name="refundType"
+                    value={value}
+                    checked={refundForm.type === value}
+                    onChange={() => setRefundForm((current) => ({ ...current, type: value, productKey: '', currentSizeId: '', requestedSizeId: '' }))}
+                    disabled={isSubmittingRefund}
+                    className="h-4 w-4 accent-emerald-700"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+
+            {refundForm.type === 'EXCHANGE_SIZE' && (
+              <div className="mt-5 grid gap-4 rounded-2xl border border-sky-100 bg-sky-50/60 p-4 sm:grid-cols-3">
+                <label className="grid gap-2 sm:col-span-3">
+                  <span className="text-sm font-bold text-emerald-950">Sản phẩm muốn đổi size</span>
+                  <select
+                    value={refundForm.productKey}
+                    onChange={(event) => {
+                      const productKey = event.target.value
+                      const item = items.find((entry, index) => getItemKey(entry, index) === productKey)
+                      setRefundForm((current) => ({ ...current, productKey, currentSizeId: getItemSizeId(item), requestedSizeId: '' }))
+                    }}
+                    disabled={isSubmittingRefund}
+                    className="h-12 rounded-2xl border border-emerald-100 bg-white px-4 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Chọn sản phẩm trong đơn</option>
+                    {items.map((item, index) => (
+                      <option key={getItemKey(item, index)} value={getItemKey(item, index)}>
+                        {item.productName || item.productId || 'Sản phẩm'} - size {item.sizeName || getItemSizeId(item) || '-'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-emerald-950">Size hiện tại</span>
+                  <select
+                    value={refundForm.currentSizeId}
+                    onChange={(event) => setRefundForm((current) => ({ ...current, currentSizeId: event.target.value }))}
+                    disabled={isSubmittingRefund || !refundForm.productKey}
+                    className="h-12 rounded-2xl border border-emerald-100 bg-white px-4 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Chọn size</option>
+                    {getItemSizeOptions(items.find((item, index) => getItemKey(item, index) === refundForm.productKey)).map((size) => (
+                      <option key={size.id} value={size.id}>{size.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2 sm:col-span-2">
+                  <span className="text-sm font-bold text-emerald-950">Size muốn đổi</span>
+                  <select
+                    value={refundForm.requestedSizeId}
+                    onChange={(event) => setRefundForm((current) => ({ ...current, requestedSizeId: event.target.value }))}
+                    disabled={isSubmittingRefund || !refundForm.productKey}
+                    className="h-12 rounded-2xl border border-emerald-100 bg-white px-4 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Chọn size khác cùng sản phẩm</option>
+                    {getItemSizeOptions(items.find((item, index) => getItemKey(item, index) === refundForm.productKey))
+                      .filter((size) => String(size.id) !== String(refundForm.currentSizeId))
+                      .map((size) => (
+                        <option key={size.id} value={size.id}>{size.name}{Number(size.stock) <= 0 ? ' - có thể hết hàng' : ''}</option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Ngân hàng</span>
+                <input
+                  value={refundForm.bankName}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, bankName: event.target.value }))}
+                  disabled={isSubmittingRefund}
+                  placeholder="Vietcombank"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Mã ngân hàng</span>
+                <input
+                  value={refundForm.bankCode}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, bankCode: event.target.value.toUpperCase() }))}
+                  disabled={isSubmittingRefund}
+                  placeholder="VCB"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm uppercase outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Số tài khoản</span>
+                <input
+                  value={refundForm.accountNumber}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, accountNumber: event.target.value }))}
+                  disabled={isSubmittingRefund}
+                  placeholder="0123456789"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Tên chủ tài khoản</span>
+                <input
+                  value={refundForm.accountName}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, accountName: event.target.value.toUpperCase() }))}
+                  disabled={isSubmittingRefund}
+                  placeholder="NGUYEN VAN A"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm uppercase outline-none focus:border-emerald-600"
+                />
+              </label>
+            </div>
+            <label className="mt-5 grid gap-2">
+              <span className="text-sm font-bold text-emerald-950">Ly do hoan tien</span>
+              <textarea
+                value={refundForm.reason}
+                onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))}
+                rows={4}
+                disabled={isSubmittingRefund}
+                placeholder="Vi du: San pham bi loi, don hang giao sai..."
+                className="resize-none rounded-2xl border border-emerald-100 px-4 py-3 text-sm leading-6 outline-none focus:border-emerald-600"
+              />
+            </label>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Ảnh bằng chứng</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleRefundImageUpload}
+                  disabled={isSubmittingRefund || isUploadingRefundImages}
+                  className="rounded-2xl border border-emerald-100 px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-700 file:px-3 file:py-2 file:text-sm file:font-bold file:text-white"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Image URL</span>
+                <textarea
+                  value={refundForm.imageUrlsText}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, imageUrlsText: event.target.value }))}
+                  rows={3}
+                  disabled={isSubmittingRefund}
+                  placeholder="Mỗi dòng một URL ảnh"
+                  className="resize-none rounded-2xl border border-emerald-100 px-4 py-3 text-sm leading-6 outline-none focus:border-emerald-600"
+                />
+              </label>
+            </div>
+            {refundImages.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-3">
+                {refundImages.map((image) => (
+                  <div key={image.url} className="relative h-20 w-20 overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50">
+                    <img src={image.url} alt={image.name || 'Ảnh bằng chứng'} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setRefundImages((current) => current.filter((entry) => entry.url !== image.url))}
+                      className="absolute right-1 top-1 h-6 w-6 rounded-full bg-white/90 text-xs font-black text-red-600"
+                      aria-label="Xóa ảnh"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <label className="mt-4 grid gap-2">
+              <span className="text-sm font-bold text-emerald-950">So tien hoan (optional)</span>
+              <input
+                type="number"
+                min="1"
+                step="1000"
+                value={refundForm.refundAmount}
+                onChange={(event) => setRefundForm((current) => ({ ...current, refundAmount: event.target.value }))}
+                disabled={isSubmittingRefund}
+                placeholder="Bo trong de hoan toan bo"
+                className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm outline-none focus:border-emerald-600"
+              />
+            </label>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setRefundModalOpen(false)
+                }}
+                disabled={isSubmittingRefund}
+                className="h-11 rounded-xl border border-emerald-100 px-4 text-sm font-bold text-emerald-800 hover:border-emerald-500 disabled:opacity-60"
+              >
+                Huy
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingRefund}
+                className="h-11 rounded-xl bg-emerald-700 px-4 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmittingRefund ? 'Dang gui...' : 'Gui yeu cau'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

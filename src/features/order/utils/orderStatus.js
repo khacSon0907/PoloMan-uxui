@@ -1,4 +1,12 @@
-export const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED', 'RETURNED']
+export const ORDER_STATUSES = [
+  'PENDING',
+  'CONFIRMED',
+  'CANCELLED',
+  'RETURNED',
+  'RETURN_REQUESTED',
+  'RETURN_APPROVED',
+  'REFUNDED',
+]
 
 export function normalizeOrderStatus(status) {
   const normalizedStatus = String(status || 'PENDING').toUpperCase()
@@ -30,6 +38,9 @@ export function getOrderStatusLabel(status) {
     CONFIRMED: 'Đã xác nhận',
     CANCELLED: 'Đã hủy',
     RETURNED: 'Đã trả hàng',
+    RETURN_REQUESTED: 'Chờ duyệt hoàn tiền',
+    RETURN_APPROVED: 'Đã duyệt hoàn tiền',
+    REFUNDED: 'Đã hoàn tiền',
   }
 
   return labels[normalizeOrderStatus(status)] || labels.PENDING
@@ -52,6 +63,18 @@ export function getOrderStatusBadgeClass(status) {
 
   if (normalizedStatus === 'RETURNED') {
     return 'border-neutral-200 bg-neutral-50 text-neutral-600'
+  }
+
+  if (normalizedStatus === 'RETURN_REQUESTED') {
+    return 'border-amber-200 bg-amber-50 text-amber-700'
+  }
+
+  if (normalizedStatus === 'RETURN_APPROVED') {
+    return 'border-sky-200 bg-sky-50 text-sky-700'
+  }
+
+  if (normalizedStatus === 'REFUNDED') {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
   }
 
   return 'border-neutral-200 bg-neutral-50 text-neutral-600'

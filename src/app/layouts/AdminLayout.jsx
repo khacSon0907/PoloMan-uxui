@@ -34,6 +34,7 @@ const adminNavItems = [
   { to: '/admin/banners', label: 'Banner', icon: Image },
   { to: '/admin/promotion-banners', label: 'Promotion', icon: Megaphone },
   { to: '/admin/orders', label: 'Đơn hàng', icon: ShoppingBag },
+  { to: '/admin/refunds', label: 'Hoàn tiền', icon: RefreshCw },
   { to: '/admin/shipping-rules', label: 'Phi ship', icon: Truck },
   { to: '/admin/users', label: 'Khách hàng', icon: Users },
   { to: '/admin/roles', label: 'Vai trò', icon: ShieldCheck },

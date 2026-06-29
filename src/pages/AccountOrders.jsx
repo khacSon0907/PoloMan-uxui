@@ -3,7 +3,6 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
-  CreditCard,
   Heart,
   Headphones,
   KeyRound,
@@ -23,6 +22,7 @@ import {
   orderApi,
 } from '../features/order'
 import { formatCurrency, getUserId } from '../features/product'
+import { refundApi } from '../features/refund'
 import { getApiMessage, tokenStorage } from '../shared/api'
 
 const STATUS_FILTERS = [
@@ -40,7 +40,7 @@ const sidebarItems = [
   { label: 'Địa chỉ của tôi', icon: MapPin, to: '/account/addresses/new' },
   { label: 'Đơn hàng của tôi', icon: Package, to: '/account/orders', active: true },
   { label: 'Sản phẩm yêu thích', icon: Heart, to: '/favorites' },
-  { label: 'Đổi trả & Hoàn tiền', icon: RefreshCw, to: '/account' },
+  { label: 'Đổi trả & Hoàn tiền', icon: RefreshCw, to: '/account/refunds' },
   { label: 'Đổi mật khẩu', icon: KeyRound, to: '/change-password' },
 ]
 
@@ -80,6 +80,16 @@ function getStatusDotClass(status) {
 
 function getOrderItems(order) {
   return Array.isArray(order?.items) ? order.items : []
+}
+
+function canRequestRefund(order) {
+  const paymentMethod = String(order?.paymentMethod || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const paymentStatus = String(order?.paymentStatus || '').toUpperCase()
+  const orderStatus = String(order?.status || '').toUpperCase()
+  const paidStatuses = ['PAID', 'SUCCESS', 'COMPLETED', 'CAPTURED']
+  const blockedStatuses = ['PENDING', 'CANCELLED', 'CANCELED', 'REFUNDED', 'RETURN_REQUESTED', 'RETURN_APPROVED']
+
+  return paymentMethod === 'PAYOS' && paidStatuses.includes(paymentStatus) && !blockedStatuses.includes(orderStatus)
 }
 
 function OrderStatusBadge({ status }) {
@@ -180,6 +190,16 @@ function AccountOrders() {
   const [orders, setOrders] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingOrderId, setCancellingOrderId] = useState('')
+  const [refundModalOrder, setRefundModalOrder] = useState(null)
+  const [refundReason, setRefundReason] = useState('')
+  const [refundAmount, setRefundAmount] = useState('')
+  const [refundBankForm, setRefundBankForm] = useState({
+    bankCode: '',
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+  })
+  const [refundingOrderId, setRefundingOrderId] = useState('')
   const [message, setMessage] = useState(location.state?.message || '')
   const [errorMessage, setErrorMessage] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -262,6 +282,89 @@ function AccountOrders() {
       )
     } finally {
       setCancellingOrderId('')
+    }
+  }
+
+  const openRefundModal = (order) => {
+    const orderId = order?.id || order?.orderId || order?.orderCode
+    if (!orderId || !canRequestRefund(order)) return
+
+    setRefundModalOrder(order)
+    setRefundReason('')
+    setRefundAmount('')
+    setRefundBankForm({ bankCode: '', bankName: '', accountNumber: '', accountName: '' })
+    setErrorMessage('')
+    setMessage('')
+  }
+
+  const closeRefundModal = () => {
+    if (refundingOrderId) return
+    setRefundModalOrder(null)
+    setRefundReason('')
+    setRefundAmount('')
+    setRefundBankForm({ bankCode: '', bankName: '', accountNumber: '', accountName: '' })
+  }
+
+  const handleRefundSubmit = async (event) => {
+    event.preventDefault()
+
+    const order = refundModalOrder
+    const orderId = order?.id || order?.orderId || order?.orderCode
+    if (!orderId || !canRequestRefund(order)) return
+
+    if (!refundReason.trim()) {
+      setErrorMessage('Vui lòng nhập lý do hoàn tiền.')
+      setMessage('')
+      return
+    }
+
+    const bankPayload = {
+      bankCode: refundBankForm.bankCode.trim(),
+      bankName: refundBankForm.bankName.trim(),
+      accountNumber: refundBankForm.accountNumber.trim(),
+      accountName: refundBankForm.accountName.trim(),
+    }
+
+    if (!bankPayload.bankName || !bankPayload.bankCode || !bankPayload.accountNumber || !bankPayload.accountName) {
+      setErrorMessage('Vui lòng nhập đầy đủ thông tin ngân hàng nhận hoàn tiền.')
+      setMessage('')
+      return
+    }
+
+    const amountText = String(refundAmount || '').trim()
+    const amount = amountText ? Number(amountText) : null
+
+    if (amountText && (!Number.isFinite(amount) || amount <= 0)) {
+      setErrorMessage('Số tiền hoàn phải lớn hơn 0.')
+      setMessage('')
+      return
+    }
+
+    setRefundingOrderId(orderId)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      const payload = {
+        orderId,
+        reason: refundReason.trim(),
+        ...bankPayload,
+      }
+
+      if (amountText) payload.refundAmount = amount
+
+      await refundApi.requestRefund(payload)
+      await refundApi.getMyRefunds().catch(() => [])
+      await loadOrders()
+      setRefundModalOrder(null)
+      setRefundReason('')
+      setRefundAmount('')
+      setRefundBankForm({ bankCode: '', bankName: '', accountNumber: '', accountName: '' })
+      setMessage(`Đã gửi yêu cầu hoàn tiền cho đơn hàng #${order.orderCode || orderId}.`)
+    } catch (error) {
+      setErrorMessage(getApiMessage(error, 'Không thể gửi yêu cầu hoàn tiền.'))
+    } finally {
+      setRefundingOrderId('')
     }
   }
 
@@ -406,6 +509,7 @@ function AccountOrders() {
             {pagedOrders.map((order) => {
               const orderId = order.id || order.orderId || order.orderCode
               const isCancelling = cancellingOrderId === orderId
+              const isRefunding = refundingOrderId === orderId
               const orderItems = getOrderItems(order)
               const itemCount = orderItems.length || order.itemCount || 0
 
@@ -468,6 +572,16 @@ function AccountOrders() {
                         >
                           {isCancelling ? 'Đang hủy...' : 'Hủy đơn'}
                         </button>
+                      ) : canRequestRefund(order) ? (
+                        <button
+                          type="button"
+                          onClick={() => openRefundModal(order)}
+                          disabled={isRefunding}
+                          className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-4 text-xs font-bold text-orange-600 hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          {isRefunding ? 'Đang gửi...' : 'Hoàn tiền'}
+                        </button>
                       ) : (
                         <Link
                           to="/products"
@@ -516,6 +630,107 @@ function AccountOrders() {
         {/* Pagination */}
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
+
+      {refundModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/40 px-4 backdrop-blur-sm">
+          <form onSubmit={handleRefundSubmit} className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Yêu cầu hoàn tiền</p>
+            <h2 className="mt-2 text-2xl font-black text-emerald-950">
+              Đơn hàng #{refundModalOrder.orderCode || refundModalOrder.id || refundModalOrder.orderId}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-emerald-900/65">
+              Nếu bỏ trống số tiền hoàn, hệ thống sẽ gửi yêu cầu hoàn toàn bộ giá trị đơn hàng.
+            </p>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Ngân hàng</span>
+                <input
+                  value={refundBankForm.bankName}
+                  onChange={(event) => setRefundBankForm((current) => ({ ...current, bankName: event.target.value }))}
+                  disabled={Boolean(refundingOrderId)}
+                  placeholder="Vietcombank"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Mã ngân hàng</span>
+                <input
+                  value={refundBankForm.bankCode}
+                  onChange={(event) => setRefundBankForm((current) => ({ ...current, bankCode: event.target.value.toUpperCase() }))}
+                  disabled={Boolean(refundingOrderId)}
+                  placeholder="VCB"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm uppercase outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Số tài khoản</span>
+                <input
+                  value={refundBankForm.accountNumber}
+                  onChange={(event) => setRefundBankForm((current) => ({ ...current, accountNumber: event.target.value }))}
+                  disabled={Boolean(refundingOrderId)}
+                  placeholder="0123456789"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-emerald-950">Tên chủ tài khoản</span>
+                <input
+                  value={refundBankForm.accountName}
+                  onChange={(event) => setRefundBankForm((current) => ({ ...current, accountName: event.target.value.toUpperCase() }))}
+                  disabled={Boolean(refundingOrderId)}
+                  placeholder="NGUYEN VAN A"
+                  className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm uppercase outline-none focus:border-emerald-600"
+                />
+              </label>
+            </div>
+
+            <label className="mt-5 grid gap-2">
+              <span className="text-sm font-bold text-emerald-950">Lý do hoàn tiền</span>
+              <textarea
+                value={refundReason}
+                onChange={(event) => setRefundReason(event.target.value)}
+                rows={4}
+                disabled={Boolean(refundingOrderId)}
+                placeholder="Ví dụ: Sản phẩm bị lỗi, giao sai sản phẩm..."
+                className="resize-none rounded-2xl border border-emerald-100 px-4 py-3 text-sm leading-6 outline-none focus:border-emerald-600"
+              />
+            </label>
+
+            <label className="mt-4 grid gap-2">
+              <span className="text-sm font-bold text-emerald-950">Số tiền hoàn (optional)</span>
+              <input
+                type="number"
+                min="1"
+                step="1000"
+                value={refundAmount}
+                onChange={(event) => setRefundAmount(event.target.value)}
+                disabled={Boolean(refundingOrderId)}
+                placeholder="Bỏ trống để hoàn toàn bộ"
+                className="h-12 rounded-2xl border border-emerald-100 px-4 text-sm outline-none focus:border-emerald-600"
+              />
+            </label>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeRefundModal}
+                disabled={Boolean(refundingOrderId)}
+                className="h-11 rounded-xl border border-emerald-100 px-4 text-sm font-bold text-emerald-800 hover:border-emerald-500 disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(refundingOrderId)}
+                className="h-11 rounded-xl bg-emerald-700 px-4 text-sm font-black uppercase tracking-[0.12em] text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {refundingOrderId ? 'Đang gửi...' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

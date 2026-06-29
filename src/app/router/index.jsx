@@ -13,6 +13,7 @@ import AdminPromotionBanners from "../../pages/admin/AdminPromotionBanners";
 import AdminProductCreate from "../../pages/admin/AdminProductCreate";
 import AdminProductDetail from "../../pages/admin/AdminProductDetail";
 import AdminProducts from "../../pages/admin/AdminProducts";
+import AdminRefunds from "../../pages/admin/AdminRefunds";
 import AdminRoles from "../../pages/admin/AdminRoles";
 import AdminShippingRules from "../../pages/admin/AdminShippingRules";
 import AdminUsers from "../../pages/admin/AdminUsers";
@@ -33,6 +34,7 @@ import Account from "../../pages/Account";
 import AccountAddress from "../../pages/AccountAddress";
 import AccountOrderDetail from "../../pages/AccountOrderDetail";
 import AccountOrders from "../../pages/AccountOrders";
+import AccountRefunds from "../../pages/AccountRefunds";
 import About from "../../pages/About";
 import ChangePassword from "../../pages/ChangePassword";
 import NotFound from "../../pages/NotFound";
@@ -83,6 +85,10 @@ export const router = createBrowserRouter([
       {
         path: "account/orders/:orderId",
         element: <AccountOrderDetail />,
+      },
+      {
+        path: "account/refunds",
+        element: <AccountRefunds />,
       },
       {
         path: "account/addresses/:addressId",
@@ -154,6 +160,10 @@ export const router = createBrowserRouter([
           {
             path: "orders/:orderId",
             element: <AdminOrderDetail />,
+          },
+          {
+            path: "refunds",
+            element: <AdminRefunds />,
           },
           {
             path: "shipping-rules",

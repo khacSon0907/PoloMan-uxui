@@ -63,6 +63,7 @@ function formatFullAddress(address) {
 const sidebarItems = [
   { label: 'Thong tin tai khoan', icon: UserRound, active: true, to: '/account' },
   { label: 'Don hang cua toi', icon: Package, to: '/account/orders' },
+  { label: 'Yeu cau hoan tien', icon: CreditCard, to: '/account/refunds' },
   { label: 'So dia chi', icon: MapPin, to: '/account/addresses/new' },
   { label: 'Phuong thuc thanh toan', icon: CreditCard, to: '/account' },
   { label: 'Doi mat khau', icon: KeyRound, to: '/change-password' },

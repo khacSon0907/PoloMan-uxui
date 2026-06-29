@@ -10,6 +10,9 @@ import {
 import { getApiMessage, tokenStorage } from '../shared/api'
 import { usePageMeta } from '../shared/hooks/usePageMeta'
 
+const FAVORITE_IMAGE_PLACEHOLDER =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="600" viewBox="0 0 480 600"><rect width="480" height="600" fill="%23ecfdf5"/><path d="M144 279h192v132H144z" fill="%23d1fae5"/><path d="M184 250c0-31 25-56 56-56s56 25 56 56" fill="none" stroke="%23065f46" stroke-width="18" stroke-linecap="round"/><text x="240" y="465" text-anchor="middle" font-family="Arial" font-size="28" font-weight="700" fill="%23065f46">PoloMan</text></svg>'
+
 function Favorites() {
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
   const [favorites, setFavorites] = useState([])
@@ -193,6 +196,8 @@ function Favorites() {
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {favorites.map((item) => {
               const isRemoving = removingProductIds.has(String(item.productId))
+              const productImage = item.productImage || item.image || FAVORITE_IMAGE_PLACEHOLDER
+              const productName = item.productName || item.name || 'San pham'
 
               return (
                 <article
@@ -200,17 +205,11 @@ function Favorites() {
                   className="group flex h-full flex-col overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
                 >
                   <Link to={`/products/${item.slug || item.productId}`} className="relative block aspect-[4/5] overflow-hidden bg-emerald-50">
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-neutral-400">
-                        No image
-                      </div>
-                    )}
+                    <img
+                      src={productImage}
+                      alt={productName}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    />
                   </Link>
                   <div className="flex flex-1 flex-col justify-between gap-4 p-4">
                     <div>
@@ -218,7 +217,7 @@ function Favorites() {
                         to={`/products/${item.slug || item.productId}`}
                         className="line-clamp-2 text-sm font-bold text-emerald-950 hover:text-emerald-700"
                       >
-                        {item.name || 'San pham'}
+                        {productName}
                       </Link>
                       <p className="mt-2 text-sm font-black text-emerald-900">
                         {formatCurrency(item.price || 0)}

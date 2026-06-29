@@ -9,6 +9,7 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  MessageCircle,
   Package,
   ShieldCheck,
   ShoppingBag,
@@ -26,7 +27,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 
 import { authApi } from '../../features/auth'
 import { formatCurrency } from '../../features/product'
-import { hasRole, tokenStorage } from '../../shared/api'
+import { hasAnyRole, hasRole, tokenStorage } from '../../shared/api'
 import {
   ADMIN_NEW_ORDER_EVENT,
   subscribeAdminOrderNotifications,
@@ -41,6 +42,7 @@ const adminNavItems = [
   { to: '/admin/orders', label: 'Đơn hàng', icon: ShoppingBag },
   { to: '/admin/refunds', label: 'Hoàn tiền', icon: RefreshCw },
   { to: '/admin/shipping-rules', label: 'Phi ship', icon: Truck },
+  { to: '/admin/support-chat', label: 'Chat ho tro', icon: MessageCircle },
   { to: '/admin/users', label: 'Khách hàng', icon: Users },
   { to: '/admin/roles', label: 'Vai trò', icon: ShieldCheck },
 ]
@@ -93,10 +95,49 @@ function createOrderNotification(order) {
   }
 }
 
+function playNewOrderSound() {
+  if (typeof window === 'undefined') return
+
+  const AudioContext = window.AudioContext || window.webkitAudioContext
+  if (!AudioContext) return
+
+  try {
+    const audioContext = new AudioContext()
+    const playTone = (frequency, startTime) => {
+      const oscillator = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(frequency, startTime)
+      gain.gain.setValueAtTime(0.0001, startTime)
+      gain.gain.exponentialRampToValueAtTime(0.22, startTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.22)
+
+      oscillator.connect(gain)
+      gain.connect(audioContext.destination)
+      oscillator.start(startTime)
+      oscillator.stop(startTime + 0.24)
+    }
+
+    const now = audioContext.currentTime
+    playTone(880, now)
+    playTone(1175, now + 0.26)
+
+    window.setTimeout(() => {
+      audioContext.close().catch(() => {})
+    }, 900)
+  } catch {
+    // Browsers may block autoplay audio until the admin interacts with the page.
+  }
+}
+
 function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = tokenStorage.getUser()
+  const visibleNavItems = adminNavItems.filter(
+    (item) => hasRole(user, 'ADMIN') || !['/admin/users', '/admin/roles'].includes(item.to),
+  )
   
   // Account Menu States & Ref
   const accountMenuRef = useRef(null)
@@ -193,7 +234,7 @@ function AdminLayout() {
   }, [notifMenuOpen])
 
   useEffect(() => {
-    if (!tokenStorage.getAccessToken() || !hasRole(user, 'ADMIN')) return undefined
+    if (!tokenStorage.getAccessToken() || !hasAnyRole(user, ['ADMIN', 'STAFF'])) return undefined
 
     return subscribeAdminOrderNotifications({
       onMessage: (data) => {
@@ -203,6 +244,7 @@ function AdminLayout() {
 
         setNotifications((prev) => [notification, ...prev].slice(0, 20))
         setToastNotification(notification)
+        playNewOrderSound()
 
         window.dispatchEvent(
           new CustomEvent(ADMIN_NEW_ORDER_EVENT, {
@@ -274,7 +316,7 @@ function AdminLayout() {
           >
             {sidebarCollapsed ? 'QL' : 'Quan ly'}
           </p>
-          {adminNavItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
 
             return (
@@ -467,7 +509,9 @@ function AdminLayout() {
                   </div>
                   <div className="hidden min-w-0 text-left sm:block">
                     <p className="truncate text-sm font-black text-neutral-950">{getDisplayName(user)}</p>
-                    <p className="mt-0.5 text-xs font-semibold text-neutral-500">admin</p>
+                    <p className="mt-0.5 text-xs font-semibold text-neutral-500">
+                      {hasRole(user, 'ADMIN') ? 'admin' : 'staff'}
+                    </p>
                   </div>
                   <ChevronDown
                     size={17}
@@ -545,7 +589,7 @@ function AdminLayout() {
           </div>
 
           <nav className="scrollbar-hidden flex gap-2 overflow-x-auto border-t border-neutral-100 px-4 py-3 sm:px-6 lg:hidden">
-            {adminNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon
 
               return (

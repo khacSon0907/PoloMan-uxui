@@ -17,6 +17,7 @@ import AdminRefundDetail from "../../pages/admin/AdminRefundDetail";
 import AdminRefunds from "../../pages/admin/AdminRefunds";
 import AdminRoles from "../../pages/admin/AdminRoles";
 import AdminShippingRules from "../../pages/admin/AdminShippingRules";
+import AdminSupportChat from "../../pages/admin/AdminSupportChat";
 import AdminUsers from "../../pages/admin/AdminUsers";
 import AdminUserDetail from "../../pages/admin/AdminUserDetail";
 import Home from "../../pages/Home";
@@ -37,6 +38,7 @@ import AccountOrderDetail from "../../pages/AccountOrderDetail";
 import AccountOrders from "../../pages/AccountOrders";
 import AccountRefundRequest from "../../pages/AccountRefundRequest";
 import AccountRefunds from "../../pages/AccountRefunds";
+import AccountChat from "../../pages/AccountChat";
 import About from "../../pages/About";
 import ChangePassword from "../../pages/ChangePassword";
 import NotFound from "../../pages/NotFound";
@@ -97,6 +99,15 @@ export const router = createBrowserRouter([
         element: <AccountRefunds />,
       },
       {
+        element: <ProtectedRoute requiredRole="USER" />,
+        children: [
+          {
+            path: "chat",
+            element: <AccountChat />,
+          },
+        ],
+      },
+      {
         path: "account/addresses/:addressId",
         element: <AccountAddress />,
       },
@@ -121,7 +132,7 @@ export const router = createBrowserRouter([
 
   // ADMIN WEBSITE
   {
-    element: <ProtectedRoute requiredRole="ADMIN" />,
+    element: <ProtectedRoute requiredRoles={["ADMIN", "STAFF"]} />,
     children: [
       {
         path: "/admin",
@@ -180,16 +191,25 @@ export const router = createBrowserRouter([
             element: <AdminShippingRules />,
           },
           {
-            path: "users",
-            element: <AdminUsers />,
+            path: "support-chat",
+            element: <AdminSupportChat />,
           },
           {
-            path: "users/:userId",
-            element: <AdminUserDetail />,
-          },
-          {
-            path: "roles",
-            element: <AdminRoles />,
+            element: <ProtectedRoute requiredRole="ADMIN" />,
+            children: [
+              {
+                path: "users",
+                element: <AdminUsers />,
+              },
+              {
+                path: "users/:userId",
+                element: <AdminUserDetail />,
+              },
+              {
+                path: "roles",
+                element: <AdminRoles />,
+              },
+            ],
           },
         ],
       },

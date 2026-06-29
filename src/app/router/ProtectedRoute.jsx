@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
-import { hasRole, tokenStorage } from '../../shared/api'
+import { hasAnyRole, tokenStorage } from '../../shared/api'
 
-function ProtectedRoute({ requiredRole }) {
+function ProtectedRoute({ requiredRole, requiredRoles }) {
   const location = useLocation()
   const [authSnapshot, setAuthSnapshot] = useState(tokenStorage.getSnapshot())
 
@@ -21,7 +21,9 @@ function ProtectedRoute({ requiredRole }) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
-  if (requiredRole && !hasRole(authSnapshot.user, requiredRole)) {
+  const allowedRoles = requiredRoles || (requiredRole ? [requiredRole] : [])
+
+  if (allowedRoles.length && !hasAnyRole(authSnapshot.user, allowedRoles)) {
     return <Navigate to="/" replace />
   }
 

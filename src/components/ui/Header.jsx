@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Heart, LogOut, Menu, Package, Search, ShieldCheck, ShoppingBag, UserRound, X } from 'lucide-react'
+import { ChevronDown, Heart, LogOut, Menu, MessageCircle, Package, Search, ShieldCheck, ShoppingBag, UserRound, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
 import { categoryApi, normalizeCategoryTree } from '../../features/category'
 import { cartApi, cartStorage, CART_UPDATED_EVENT, favoriteApi, FAVORITES_UPDATED_EVENT, getUserId } from '../../features/product'
-import { canChangePassword, hasRole, tokenStorage } from '../../shared/api'
+import { canChangePassword, hasAnyRole, tokenStorage } from '../../shared/api'
 import PromotionTicker from './PromotionTicker'
 
 const navItems = [
@@ -43,7 +43,8 @@ function Header() {
   const userId = getUserId(user)
   const isAuthenticated = authSnapshot.isAuthenticated
   const isAuthInitializing = authSnapshot.isInitializing
-  const isAdmin = hasRole(user, 'ADMIN')
+  const canAccessAdmin = hasAnyRole(user, ['ADMIN', 'STAFF'])
+  const isCustomer = hasAnyRole(user, ['USER']) && !canAccessAdmin
   const showChangePassword = canChangePassword(user)
   const isActive = (path) => location.pathname === path
 
@@ -62,8 +63,9 @@ function Header() {
   const accountLinks = [
     { to: '/account', label: 'Tai khoan cua toi', icon: UserRound, show: true },
     { to: '/account/orders', label: 'Don hang', icon: Package, show: true },
+    { to: '/chat', label: 'Chat ho tro', icon: MessageCircle, show: isCustomer },
     { to: '/change-password', label: 'Doi mat khau', icon: ShieldCheck, show: showChangePassword },
-    { to: '/admin', label: 'Quan tri', icon: ShieldCheck, show: isAdmin },
+    { to: '/admin', label: 'Quan tri', icon: ShieldCheck, show: canAccessAdmin },
   ].filter((item) => item.show)
 
   useEffect(() => tokenStorage.subscribe(setAuthSnapshot), [])

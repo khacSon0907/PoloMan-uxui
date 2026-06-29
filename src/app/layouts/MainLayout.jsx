@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Header from '../../components/ui/Header'
+import CustomerChatWidget from '../../components/ui/CustomerChatWidget'
 
 function MainLayout({ children }) {
   const { pathname, search } = useLocation()
@@ -16,6 +17,8 @@ function MainLayout({ children }) {
       <main className="flex-grow w-full max-w-[1500px] mx-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8">
         {children || <Outlet />}
       </main>
+
+      <CustomerChatWidget />
 
       <footer className="bg-[linear-gradient(135deg,#f8fbf4_0%,#eef7ec_100%)] border-t border-emerald-100 text-emerald-900/70 text-sm mt-auto">
         <div className="max-w-[1500px] mx-auto grid grid-cols-1 gap-8 px-4 py-10 sm:px-6 sm:py-12 md:grid-cols-2 lg:grid-cols-4 lg:px-10 lg:py-16 lg:gap-12">

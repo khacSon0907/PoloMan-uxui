@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../features/auth'
-import { getApiMessage, hasRole, tokenStorage } from '../shared/api'
+import { getApiMessage, hasAnyRole, tokenStorage } from '../shared/api'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PRODUCTION_BACKEND_URL = 'https://x10-clothing-api-1.onrender.com'
@@ -48,7 +48,7 @@ function Login() {
     const fromPath = location.state?.from?.pathname
     const shouldReturnToUserPath = fromPath && !fromPath.startsWith('/admin')
 
-    navigate(hasRole(loggedInUser, 'ADMIN') ? '/admin' : shouldReturnToUserPath ? fromPath : '/', {
+    navigate(hasAnyRole(loggedInUser, ['ADMIN', 'STAFF']) ? '/admin' : shouldReturnToUserPath ? fromPath : '/', {
       replace: true,
     })
   }

@@ -90,6 +90,11 @@ export function hasRole(user, role) {
   )
 }
 
+export function hasAnyRole(user, roles) {
+  const expectedRoles = Array.isArray(roles) ? roles : [roles]
+  return expectedRoles.some((role) => hasRole(user, role))
+}
+
 export function canChangePassword(user) {
   const authProvider = String(
     user?.authProvider || user?.providerType || user?.provider || '',

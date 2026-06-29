@@ -83,6 +83,14 @@ function getReviewUserName(review) {
   );
 }
 
+function getReviewUserAvatar(review) {
+  return review?.userAvatarUrl || review?.user?.avatarUrl || review?.user?.avatar || "";
+}
+
+function getAvatarInitial(value) {
+  return String(value || "K").trim().charAt(0).toUpperCase() || "K";
+}
+
 function getReviewImages(review) {
   if (Array.isArray(review?.images)) return review.images.filter(Boolean);
   if (Array.isArray(review?.imageUrls)) return review.imageUrls.filter(Boolean);
@@ -1571,6 +1579,8 @@ function ProductDetail() {
                     {reviews.slice(0, 4).map((review) => {
                       const reviewId = getReviewId(review);
                       const rating = clampRating(review.rating);
+                      const reviewerName = getReviewUserName(review);
+                      const reviewerAvatar = getReviewUserAvatar(review);
                       const isOwnReview =
                         userId &&
                         String(getReviewUserId(review)) === String(userId);
@@ -1589,10 +1599,18 @@ function ProductDetail() {
                           className="rounded-xl border border-neutral-200 bg-white p-4"
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-sm font-black text-emerald-800">
+                                {reviewerAvatar ? (
+                                  <img src={reviewerAvatar} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  getAvatarInitial(reviewerName)
+                                )}
+                              </span>
+                              <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="truncate font-black text-neutral-950">
-                                  {getReviewUserName(review)}
+                                  {reviewerName}
                                 </h3>
                                 
                               </div>
@@ -1604,6 +1622,7 @@ function ProductDetail() {
                                     strokeWidth={1.6}
                                   />
                                 ))}
+                              </div>
                               </div>
                             </div>
                             {thumbnail && (

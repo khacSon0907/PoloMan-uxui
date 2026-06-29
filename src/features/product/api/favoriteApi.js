@@ -40,12 +40,20 @@ export function normalizeFavoriteItem(item) {
     productId,
     slug: product?.slug || item?.slug || productId,
     name: product?.name || item?.productName || item?.name || productId || "San pham",
+    productName: item?.productName || product?.name || item?.name || productId || "San pham",
     price: product?.salePrice || product?.price || item?.price || item?.unitPrice || 0,
-    image:
+    productImage:
+      item?.productImage ||
       product?.imageUrl ||
       product?.image ||
       product?.thumbnail ||
+      item?.image ||
+      "",
+    image:
       item?.productImage ||
+      product?.imageUrl ||
+      product?.image ||
+      product?.thumbnail ||
       item?.image ||
       "",
   };

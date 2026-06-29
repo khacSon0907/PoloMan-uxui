@@ -22,10 +22,15 @@ import {
   Star,
   RefreshCw,
 } from 'lucide-react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { authApi } from '../../features/auth'
-import { tokenStorage } from '../../shared/api'
+import { formatCurrency } from '../../features/product'
+import { hasRole, tokenStorage } from '../../shared/api'
+import {
+  ADMIN_NEW_ORDER_EVENT,
+  subscribeAdminOrderNotifications,
+} from '../../shared/services/adminOrderSocket'
 
 const adminNavItems = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard },
@@ -48,8 +53,49 @@ function getInitial(user) {
   return getDisplayName(user).trim().charAt(0).toUpperCase() || 'A'
 }
 
+function formatNotificationDate(value) {
+  if (!value) return 'Vừa xong'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Vừa xong'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function getNotificationCustomer(order) {
+  return order?.receiverName || order?.guestEmail || order?.userId || 'Khach hang'
+}
+
+function createOrderNotification(order) {
+  const orderCode = order?.orderCode || order?.orderId || 'NEW'
+
+  return {
+    id: `${order?.orderId || orderCode}-${Date.now()}`,
+    type: 'order',
+    orderId: order?.orderId || '',
+    orderCode,
+    customer: getNotificationCustomer(order),
+    receiverPhone: order?.receiverPhone || '-',
+    totalAmount: Number(order?.totalAmount || 0),
+    itemCount: Number(order?.itemCount || 0),
+    createdAt: order?.createdAt || new Date().toISOString(),
+    status: order?.status || '-',
+    paymentStatus: order?.paymentStatus || '-',
+    text: `Có đơn hàng mới #${orderCode}`,
+    time: formatNotificationDate(order?.createdAt),
+    isUnread: true,
+  }
+}
+
 function AdminLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const user = tokenStorage.getUser()
   
   // Account Menu States & Ref
@@ -61,12 +107,8 @@ function AdminLayout() {
   // Notification Menu States & Ref (Facebook Style)
   const notifMenuRef = useRef(null)
   const [notifMenuOpen, setNotifMenuOpen] = useState(false)
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'order', text: 'Có 5 đơn hàng mới cần xử lý', time: '10 phút trước', isUnread: true },
-    { id: 2, type: 'stock', text: 'Sản phẩm "Polo Basic XL" sắp hết hàng (còn 3 cái)', time: '30 phút trước', isUnread: true },
-    { id: 3, type: 'review', text: 'Có 2 đánh giá 5 sao mới cho Polo Premium', time: '2 giờ trước', isUnread: false },
-    { id: 4, type: 'return', text: 'Khách hàng Nguyễn Văn A yêu cầu hoàn trả đơn #PM0985', time: '1 ngày trước', isUnread: false },
-  ])
+  const [notifications, setNotifications] = useState([])
+  const [toastNotification, setToastNotification] = useState(null)
 
   // Count unread notifications
   const unreadNotifsCount = notifications.filter((n) => n.isUnread).length
@@ -80,6 +122,12 @@ function AdminLayout() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isUnread: false } : n))
     )
+  }
+
+  const handleNotificationClick = (notification) => {
+    toggleNotifRead(notification.id)
+    setNotifMenuOpen(false)
+    navigate(notification.orderId ? `/admin/orders/${notification.orderId}` : '/admin/orders')
   }
 
   const getNotifIcon = (type) => {
@@ -143,6 +191,37 @@ function AdminLayout() {
       document.removeEventListener('pointerdown', handlePointerDown)
     }
   }, [notifMenuOpen])
+
+  useEffect(() => {
+    if (!tokenStorage.getAccessToken() || !hasRole(user, 'ADMIN')) return undefined
+
+    return subscribeAdminOrderNotifications({
+      onMessage: (data) => {
+        if (data?.type !== 'NEW_ORDER') return
+
+        const notification = createOrderNotification(data)
+
+        setNotifications((prev) => [notification, ...prev].slice(0, 20))
+        setToastNotification(notification)
+
+        window.dispatchEvent(
+          new CustomEvent(ADMIN_NEW_ORDER_EVENT, {
+            detail: data,
+          }),
+        )
+      },
+    })
+  }, [user])
+
+  useEffect(() => {
+    if (!toastNotification) return undefined
+
+    const timeoutId = window.setTimeout(() => {
+      setToastNotification(null)
+    }, 4500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [toastNotification])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -323,7 +402,7 @@ function AdminLayout() {
                           return (
                             <div
                               key={notif.id}
-                              onClick={() => toggleNotifRead(notif.id)}
+                              onClick={() => handleNotificationClick(notif)}
                               className={`flex items-start gap-3 px-4 py-3.5 hover:bg-neutral-50 transition-colors cursor-pointer ${
                                 notif.isUnread ? 'bg-emerald-50/10' : ''
                               }`}
@@ -335,6 +414,18 @@ function AdminLayout() {
                                 <p className="text-xs font-bold text-neutral-800 leading-tight">
                                   {notif.text}
                                 </p>
+                                {notif.type === 'order' && (
+                                  <div className="space-y-0.5 text-[11px] font-semibold leading-5 text-neutral-500">
+                                    <p>Khách: {notif.customer}</p>
+                                    <p>SĐT: {notif.receiverPhone}</p>
+                                    <p>
+                                      {formatCurrency(notif.totalAmount)} · {notif.itemCount} sản phẩm
+                                    </p>
+                                    <p>
+                                      {notif.status} / {notif.paymentStatus}
+                                    </p>
+                                  </div>
+                                )}
                                 <p className="text-3xs font-semibold text-neutral-400">
                                   {notif.time}
                                 </p>
@@ -480,6 +571,23 @@ function AdminLayout() {
           <Outlet />
         </main>
       </div>
+      {toastNotification && (
+        <button
+          type="button"
+          onClick={() => handleNotificationClick(toastNotification)}
+          className="fixed right-4 top-24 z-[60] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-[0_20px_55px_rgba(6,78,59,0.18)] transition hover:border-emerald-300"
+        >
+          <p className="text-sm font-black text-emerald-900">{toastNotification.text}</p>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">
+            {toastNotification.customer} · {formatCurrency(toastNotification.totalAmount)}
+          </p>
+          {location.pathname === '/admin/orders' && (
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700">
+              Danh sách đơn hàng đang được tải lại
+            </p>
+          )}
+        </button>
+      )}
     </div>
   )
 }

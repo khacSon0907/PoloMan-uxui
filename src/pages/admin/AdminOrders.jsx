@@ -21,6 +21,7 @@ import {
 } from "../../features/order";
 import { formatCurrency } from "../../features/product";
 import { getApiMessage } from "../../shared/api";
+import { ADMIN_NEW_ORDER_EVENT } from "../../shared/services/adminOrderSocket";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -231,6 +232,18 @@ function AdminOrders() {
 
     return () => window.clearTimeout(timeoutId);
   }, [customerTypeFilter, dateFilter, loadOrders, query, statusFilter]);
+
+  useEffect(() => {
+    const handleNewOrder = () => {
+      loadOrders();
+    };
+
+    window.addEventListener(ADMIN_NEW_ORDER_EVENT, handleNewOrder);
+
+    return () => {
+      window.removeEventListener(ADMIN_NEW_ORDER_EVENT, handleNewOrder);
+    };
+  }, [loadOrders]);
 
   const handleLoadMore = () => {
     if (isLoading || isLoadingMore || !hasNext || !nextCursor) return;

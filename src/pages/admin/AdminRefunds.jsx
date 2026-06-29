@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Banknote,
   Boxes,
@@ -15,7 +16,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  X,
   XCircle,
 } from 'lucide-react'
 
@@ -30,7 +30,7 @@ import {
 import { formatCurrency } from '../../features/product'
 import { getApiMessage } from '../../shared/api'
 
-const PAGE_SIZE = 10
+const REFUND_CURSOR_LIMIT = 20
 
 const statusOptions = [
   { value: 'ALL', label: 'Tất cả trạng thái' },
@@ -130,12 +130,14 @@ function AdminRefunds() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [detailRefund, setDetailRefund] = useState(null)
   const [actionModal, setActionModal] = useState(null)
   const [actionForm, setActionForm] = useState({ note: '', reason: '' })
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasNext, setHasNext] = useState(false)
+  const [cursorLimit, setCursorLimit] = useState(REFUND_CURSOR_LIMIT)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -154,7 +156,11 @@ function AdminRefunds() {
           getUserName(refund),
           getProvider(refund),
           refund?.reason,
+          refund?.productId,
           refund?.productName,
+          refund?.colorName,
+          refund?.currentSizeName,
+          refund?.requestedSizeName,
           refund?.bankCode,
           refund?.bankName,
           refund?.accountNumber,
@@ -174,9 +180,6 @@ function AdminRefunds() {
       })
   }, [dateFrom, dateTo, query, refunds, statusFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filteredRefunds.length / PAGE_SIZE))
-  const pagedRefunds = filteredRefunds.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
   const stats = useMemo(() => {
     const countBy = (matcher) => refunds.filter((refund) => matcher(normalizeRefundStatus(refund?.status))).length
     return {
@@ -189,17 +192,26 @@ function AdminRefunds() {
     }
   }, [refunds])
 
-  const loadRefunds = async () => {
-    setIsLoading(true)
+  const loadRefunds = async ({ cursor = null, append = false } = {}) => {
+    if (append) setIsLoadingMore(true)
+    else setIsLoading(true)
     setErrorMessage('')
 
     try {
-      const list = await refundApi.getAllRefunds()
-      setRefunds(list)
+      const pageData = await refundApi.getAdminRefundsCursor({
+        limit: REFUND_CURSOR_LIMIT,
+        cursor,
+      })
+
+      setRefunds((current) => (append ? [...current, ...pageData.items] : pageData.items))
+      setNextCursor(pageData.nextCursor)
+      setHasNext(pageData.hasNext)
+      setCursorLimit(pageData.limit)
     } catch (error) {
       setErrorMessage(getApiMessage(error, 'Không thể tải danh sách yêu cầu trả hàng / hoàn tiền.'))
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
   }
 
@@ -207,8 +219,14 @@ function AdminRefunds() {
     let isMounted = true
 
     refundApi
-      .getAllRefunds()
-      .then((list) => { if (isMounted) setRefunds(list) })
+      .getAdminRefundsCursor({ limit: REFUND_CURSOR_LIMIT })
+      .then((pageData) => {
+        if (!isMounted) return
+        setRefunds(pageData.items)
+        setNextCursor(pageData.nextCursor)
+        setHasNext(pageData.hasNext)
+        setCursorLimit(pageData.limit)
+      })
       .catch((error) => { if (isMounted) setErrorMessage(getApiMessage(error, 'Không thể tải danh sách yêu cầu trả hàng / hoàn tiền.')) })
       .finally(() => { if (isMounted) setIsLoading(false) })
 
@@ -228,7 +246,6 @@ function AdminRefunds() {
       note: defaults[type] || '',
       reason: type === 'reject' ? 'Sản phẩm không đúng điều kiện trả hàng' : '',
     })
-    setDetailRefund(null)
     setErrorMessage('')
     setSuccessMessage('')
   }
@@ -287,6 +304,11 @@ function AdminRefunds() {
     setDateTo('')
   }
 
+  const loadMoreRefunds = () => {
+    if (!hasNext || !nextCursor || isLoadingMore) return
+    loadRefunds({ cursor: nextCursor, append: true })
+  }
+
   const renderActionButtons = (refund) => {
     const status = normalizeRefundStatus(refund?.status)
     if (status === 'PENDING') {
@@ -329,10 +351,7 @@ function AdminRefunds() {
         <div className="grid gap-3 xl:grid-cols-[260px_minmax(320px,1fr)_190px_190px_auto]">
           <select
             value={statusFilter}
-            onChange={(event) => {
-              setStatusFilter(event.target.value)
-              setPage(1)
-            }}
+            onChange={(event) => setStatusFilter(event.target.value)}
             className="h-12 rounded-xl border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-700 outline-none focus:border-emerald-500"
           >
             {statusOptions.map((option) => (
@@ -343,10 +362,7 @@ function AdminRefunds() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                setPage(1)
-              }}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm theo mã yêu cầu, order, user, provider..."
               className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none focus:border-emerald-500"
             />
@@ -356,10 +372,7 @@ function AdminRefunds() {
             <input
               type="date"
               value={dateFrom}
-              onChange={(event) => {
-                setDateFrom(event.target.value)
-                setPage(1)
-              }}
+              onChange={(event) => setDateFrom(event.target.value)}
               className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm text-neutral-700 outline-none focus:border-emerald-500"
             />
           </label>
@@ -368,10 +381,7 @@ function AdminRefunds() {
             <input
               type="date"
               value={dateTo}
-              onChange={(event) => {
-                setDateTo(event.target.value)
-                setPage(1)
-              }}
+              onChange={(event) => setDateTo(event.target.value)}
               className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm text-neutral-700 outline-none focus:border-emerald-500"
             />
           </label>
@@ -407,14 +417,14 @@ function AdminRefunds() {
           <div className="flex min-h-80 items-center justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-neutral-200 border-t-emerald-600" />
           </div>
-        ) : pagedRefunds.length ? (
+        ) : filteredRefunds.length ? (
           <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1320px] text-left">
                 <thead className="border-b border-neutral-100 bg-neutral-50/80 text-xs font-black uppercase tracking-[0.14em] text-neutral-500">
                   <tr>
                     <th className="px-5 py-4">Mã yêu cầu</th>
-                    <th className="px-5 py-4">Đơn hàng / Người dùng</th>
+                    <th className="px-5 py-4">Đơn hàng / Sản phẩm</th>
                     <th className="px-5 py-4">Số tiền</th>
                     <th className="px-5 py-4">Lý do</th>
                     <th className="px-5 py-4">Trạng thái</th>
@@ -423,7 +433,7 @@ function AdminRefunds() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
-                  {pagedRefunds.map((refund, index) => {
+                  {filteredRefunds.map((refund, index) => {
                     const refundId = getRefundId(refund, index)
                     const images = Array.isArray(refund.imageUrls) ? refund.imageUrls : []
                     return (
@@ -443,8 +453,13 @@ function AdminRefunds() {
                         <td className="px-5 py-5 text-sm leading-6">
                           <p><span className="font-black text-neutral-950">Order:</span> <span className="font-semibold text-emerald-700">{refund.orderId || '-'}</span></p>
                           <p><span className="font-black text-neutral-950">User:</span> <span className="font-semibold text-emerald-700">{refund.userId || getUserName(refund)}</span></p>
-                          <p><span className="font-black text-neutral-950">Provider:</span> {getProvider(refund)}</p>
-                          {refund.productName && <p><span className="font-black text-neutral-950">Sản phẩm:</span> {refund.productName}</p>}
+                          <p><span className="font-black text-neutral-950">Product:</span> <span className="font-semibold text-neutral-800">{refund.productName || '-'}</span></p>
+                          {refund.productId && <p><span className="font-black text-neutral-950">Product ID:</span> <span className="font-semibold text-neutral-500">{refund.productId}</span></p>}
+                          {refund.colorName && <p><span className="font-black text-neutral-950">Color:</span> {refund.colorName}</p>}
+                          <p>
+                            <span className="font-black text-neutral-950">Size:</span> {refund.currentSizeName || '-'}
+                            {refund.requestedSizeName ? <span className="font-black text-emerald-700"> -&gt; {refund.requestedSizeName}</span> : ''}
+                          </p>
                         </td>
                         <td className="px-5 py-5">
                           <p className="text-base font-black text-emerald-700">{formatCurrency(refund.refundAmount)}</p>
@@ -478,10 +493,10 @@ function AdminRefunds() {
                         </td>
                         <td className="px-5 py-5 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button type="button" onClick={() => setDetailRefund(refund)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-200 px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50">
+                            <Link to={`/admin/refunds/${encodeURIComponent(refundId)}`} className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-200 px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50">
                               <Eye className="h-4 w-4" />
                               Xem chi tiết
-                            </button>
+                            </Link>
                             <div className="group relative">
                               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 text-emerald-700 hover:bg-emerald-50" aria-label="Mở hành động">
                                 <ChevronDown className="h-4 w-4" />
@@ -499,16 +514,22 @@ function AdminRefunds() {
               </table>
             </div>
             <div className="flex flex-col gap-3 border-t border-neutral-100 px-5 py-4 text-sm font-medium text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
-              <p>Hiển thị {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filteredRefunds.length)} trong tổng số {filteredRefunds.length} yêu cầu</p>
-              <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} className="h-10 rounded-xl border border-neutral-200 px-3 font-black text-neutral-500 disabled:opacity-40">‹</button>
-                {Array.from({ length: totalPages }, (_, index) => index + 1).slice(0, 5).map((pageNumber) => (
-                  <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} className={`h-10 min-w-10 rounded-xl border px-3 font-black ${pageNumber === page ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-neutral-200 text-neutral-500'}`}>
-                    {pageNumber}
-                  </button>
-                ))}
-                <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page === totalPages} className="h-10 rounded-xl border border-neutral-200 px-3 font-black text-neutral-500 disabled:opacity-40">›</button>
-              </div>
+              <p>Đã tải {refunds.length} yêu cầu, đang hiển thị {filteredRefunds.length} yêu cầu phù hợp. Mỗi lần tải {cursorLimit} yêu cầu.</p>
+              {hasNext && nextCursor && (
+                <button
+                  type="button"
+                  onClick={loadMoreRefunds}
+                  disabled={isLoadingMore}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoadingMore ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-700" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  Load more
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -516,58 +537,21 @@ function AdminRefunds() {
             <FileText className="h-10 w-10 text-neutral-300" />
             <h3 className="mt-4 text-base font-black text-neutral-950">Không có yêu cầu phù hợp</h3>
             <p className="mt-2 text-sm font-medium text-neutral-500">Thử đổi bộ lọc hoặc tải lại danh sách.</p>
-            <button type="button" onClick={loadRefunds} className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700">
-              <RefreshCw className="h-4 w-4" />
-              Tải lại
-            </button>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={() => loadRefunds()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700">
+                <RefreshCw className="h-4 w-4" />
+                Tải lại
+              </button>
+              {hasNext && nextCursor && (
+                <button type="button" onClick={loadMoreRefunds} disabled={isLoadingMore} className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-200 px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-60">
+                  <ChevronDown className="h-4 w-4" />
+                  Load more
+                </button>
+              )}
+            </div>
           </div>
         )}
       </section>
-
-      {detailRefund && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/40 px-4 py-6 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Chi tiết yêu cầu</p>
-                <h2 className="mt-2 text-2xl font-black text-neutral-950">#{getRefundId(detailRefund)}</h2>
-                <p className="mt-1 text-sm font-medium text-neutral-500">{getRefundTypeLabel(detailRefund.type)} - {getRefundStatusLabel(detailRefund.status)}</p>
-              </div>
-              <button type="button" onClick={() => setDetailRefund(null)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 hover:bg-neutral-50" aria-label="Đóng">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl bg-neutral-50 p-4 text-sm leading-7">
-                <p><span className="font-black">Order:</span> {detailRefund.orderId || '-'}</p>
-                <p><span className="font-black">User:</span> {detailRefund.userId || getUserName(detailRefund)}</p>
-                <p><span className="font-black">Sản phẩm:</span> {detailRefund.productName || '-'}</p>
-                <p><span className="font-black">Size:</span> {detailRefund.currentSizeName || '-'} {detailRefund.requestedSizeName ? `→ ${detailRefund.requestedSizeName}` : ''}</p>
-                <p><span className="font-black">Lý do:</span> {detailRefund.reason || '-'}</p>
-              </div>
-              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm leading-7">
-                <p><span className="font-black">Số tiền cần hoàn:</span> {formatCurrency(detailRefund.refundAmount)}</p>
-                <p><span className="font-black">Ngân hàng:</span> {detailRefund.bankName || '-'} {detailRefund.bankCode ? `- ${detailRefund.bankCode}` : ''}</p>
-                <p><span className="font-black">Số tài khoản:</span> {detailRefund.accountNumber || '-'}</p>
-                <p><span className="font-black">Chủ tài khoản:</span> {detailRefund.accountName || '-'}</p>
-                <p><span className="font-black">Nội dung CK:</span> {detailRefund.transferContent || '-'}</p>
-              </div>
-            </div>
-            {Array.isArray(detailRefund.imageUrls) && detailRefund.imageUrls.length > 0 && (
-              <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                {detailRefund.imageUrls.map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" className="aspect-square overflow-hidden rounded-xl border border-neutral-100 bg-neutral-50">
-                    <img src={url} alt="Ảnh bằng chứng" className="h-full w-full object-cover" />
-                  </a>
-                ))}
-              </div>
-            )}
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              {renderActionButtons(detailRefund)}
-            </div>
-          </div>
-        </div>
-      )}
 
       {actionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/40 px-4 py-6 backdrop-blur-sm">

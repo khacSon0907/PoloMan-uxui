@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { Headphones, Heart, KeyRound, LogOut, MapPin, Package, RefreshCw, UserRound } from 'lucide-react'
+import { Banknote, CalendarDays, CheckCircle2, Headphones, Heart, Image, KeyRound, LogOut, MapPin, Package, RefreshCw, UserRound } from 'lucide-react'
 
 import { refundApi, getRefundStatusBadgeClass, getRefundStatusLabel, getRefundTypeLabel } from '../features/refund'
 import { formatCurrency } from '../features/product'
@@ -38,6 +38,52 @@ function formatDate(value) {
 
 function getRefundId(refund, index) {
   return refund?.id || refund?._id || refund?.refundId || `${refund?.orderId || 'refund'}-${index}`
+}
+
+function getStatusDotClass(status) {
+  const normalizedStatus = String(status || 'PENDING').toUpperCase()
+  if (['SUCCESS', 'EXCHANGED'].includes(normalizedStatus)) return 'bg-emerald-500'
+  if (['REJECTED', 'FAILED'].includes(normalizedStatus)) return 'bg-red-500'
+  if (normalizedStatus === 'PENDING') return 'bg-amber-500'
+  return 'bg-sky-500'
+}
+
+function StatusPill({ refund }) {
+  return (
+    <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${getRefundStatusBadgeClass(refund.status)}`}>
+      <span className={`h-2 w-2 rounded-full ${getStatusDotClass(refund.status)}`} />
+      {getRefundStatusLabel(refund.status)}
+    </span>
+  )
+}
+
+function getRefundProductImage(refund) {
+  return refund?.productImageUrl || refund?.productImage || refund?.thumbnailUrl || refund?.imageUrls?.[0] || ''
+}
+
+function RefundMiniTimeline({ refund }) {
+  const status = String(refund?.status || 'PENDING').toUpperCase()
+  const steps = [
+    { label: 'Đã gửi yêu cầu', date: refund?.requestedAt || refund?.createdAt, active: true },
+    { label: status === 'REJECTED' ? 'Đã từ chối' : 'Đang xét duyệt', date: refund?.approvedAt || refund?.rejectedAt, active: status !== 'PENDING' },
+    { label: status === 'EXCHANGED' ? 'Đã đổi size' : 'Đã hoàn tiền', date: refund?.processedAt || refund?.refundedAt || refund?.completedAt, active: ['SUCCESS', 'EXCHANGED'].includes(status) },
+  ]
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {steps.map((step, index) => (
+        <div key={step.label} className="flex items-start gap-3 rounded-xl bg-neutral-50 px-3 py-3">
+          <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${step.active ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-200 text-neutral-400'}`}>
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          </span>
+          <div>
+            <p className={`text-xs font-black ${step.active ? 'text-neutral-950' : 'text-neutral-400'}`}>{step.label}</p>
+            <p className="mt-1 text-xs font-semibold text-neutral-500">{step.active ? formatDate(step.date) : index === 1 ? 'Chờ shop duyệt' : 'Chưa hoàn tất'}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function AccountRefunds() {
@@ -188,65 +234,110 @@ function AccountRefunds() {
         ) : sortedRefunds.length ? (
           <div className="space-y-4">
             {sortedRefunds.map((refund, index) => (
-              <article key={getRefundId(refund, index)} className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-[0_4px_16px_rgba(15,76,58,0.05)]">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-black text-emerald-950">{getRefundTypeLabel(refund.type)} - đơn #{refund.orderId || '-'}</p>
-                    <p className="mt-1 text-xs text-neutral-500">Gửi lúc {formatDate(refund.requestedAt)}</p>
+              <article key={getRefundId(refund, index)} className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-[0_10px_30px_rgba(15,76,58,0.06)]">
+                <div className="flex flex-col gap-4 border-b border-neutral-100 px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-base font-black text-neutral-950">{getRefundTypeLabel(refund.type)}</p>
+                      <StatusPill refund={refund} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-semibold text-neutral-500">
+                      <span className="inline-flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Đơn #{refund.orderId || '-'}</span>
+                      <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> {formatDate(refund.requestedAt || refund.createdAt)}</span>
+                    </div>
                   </div>
-                  <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.1em] ${getRefundStatusBadgeClass(refund.status)}`}>
-                    {getRefundStatusLabel(refund.status)}
-                  </span>
+                  <div className="rounded-2xl bg-emerald-50 px-5 py-3 text-right">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700/70">Số tiền hoàn</p>
+                    <p className="mt-1 text-2xl font-black text-emerald-700">{formatCurrency(refund.refundAmount)}</p>
+                  </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <div className="rounded-xl bg-emerald-50/70 p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700/60">So tien</p>
-                    <p className="mt-2 text-lg font-black text-emerald-950">{formatCurrency(refund.refundAmount)}</p>
-                  </div>
-                  <div className="rounded-xl bg-neutral-50 p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Sản phẩm / size</p>
-                    <p className="mt-2 text-sm font-black text-neutral-950">{refund.productName || '-'}</p>
-                    <p className="mt-1 text-sm font-semibold text-neutral-700">
-                      {refund.currentSizeName || '-'} {refund.requestedSizeName ? `→ ${refund.requestedSizeName}` : ''}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-sky-50 p-4 sm:col-span-2">
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-sky-700/70">Tai khoan nhan tien</p>
-                    <p className="mt-2 text-sm font-black text-neutral-950">
-                      {refund.bankName || '-'} {refund.bankCode ? `(${refund.bankCode})` : ''}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-neutral-700">
-                      {refund.accountNumber || '-'} - {refund.accountName || '-'}
-                    </p>
-                    {refund.transferContent && (
-                      <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-sky-700">
-                        Noi dung CK: {refund.transferContent}
-                      </p>
+                <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+                      <div className="flex gap-4">
+                        <div className="h-24 w-20 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                          {getRefundProductImage(refund) ? (
+                            <img src={getRefundProductImage(refund)} alt={refund.productName || 'Sản phẩm'} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] font-black text-neutral-300">IMG</div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-black uppercase tracking-[0.12em] text-neutral-500">Sản phẩm</p>
+                          <p className="mt-1 break-words text-sm font-black text-neutral-950">{refund.productName || '-'}</p>
+                          <p className="mt-1 text-sm font-semibold text-neutral-600">
+                            Màu: {refund.colorName || '-'} · Size: {refund.currentSizeName || '-'}
+                            {refund.requestedSizeName ? <span className="font-black text-emerald-700"> -&gt; {refund.requestedSizeName}</span> : ''}
+                          </p>
+                          {refund.productId && <p className="mt-1 break-all text-xs font-semibold text-neutral-400">Product ID: {refund.productId}</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-neutral-100 bg-white p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-neutral-500">Lý do</p>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-neutral-800">{refund.reason || '-'}</p>
+                    </div>
+
+                    {Array.isArray(refund.imageUrls) && refund.imageUrls.length > 0 && (
+                      <div className="rounded-2xl border border-neutral-100 bg-white p-4">
+                        <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-neutral-500">
+                          <Image className="h-4 w-4" />
+                          Ảnh bằng chứng
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                          {refund.imageUrls.map((url) => (
+                            <a key={url} href={url} target="_blank" rel="noreferrer" className="aspect-square overflow-hidden rounded-xl border border-neutral-100 bg-neutral-50">
+                              <img src={url} alt="Ảnh bằng chứng" className="h-full w-full object-cover transition hover:scale-105" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <div className="rounded-xl bg-neutral-50 p-4 sm:col-span-2">
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Ly do</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-neutral-800">{refund.reason || '-'}</p>
-                  </div>
-                </div>
 
-                {Array.isArray(refund.imageUrls) && refund.imageUrls.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {refund.imageUrls.map((url) => (
-                      <a key={url} href={url} target="_blank" rel="noreferrer" className="h-20 w-20 overflow-hidden rounded-xl border border-neutral-100 bg-neutral-50">
-                        <img src={url} alt="Ảnh bằng chứng" className="h-full w-full object-cover" />
-                      </a>
-                    ))}
-                  </div>
-                )}
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                      <p className="inline-flex items-center gap-2 text-sm font-black text-neutral-950">
+                        <Banknote className="h-4 w-4 text-emerald-700" />
+                        Tài khoản nhận tiền
+                      </p>
+                      <div className="mt-4 space-y-3 text-sm">
+                        <div className="flex justify-between gap-4">
+                          <span className="font-semibold text-neutral-500">Ngân hàng</span>
+                          <span className="text-right font-black text-neutral-950">{refund.bankName || '-'} {refund.bankCode ? `(${refund.bankCode})` : ''}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="font-semibold text-neutral-500">Số tài khoản</span>
+                          <span className="text-right font-black text-neutral-950">{refund.accountNumber || '-'}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="font-semibold text-neutral-500">Chủ tài khoản</span>
+                          <span className="text-right font-black text-neutral-950">{refund.accountName || '-'}</span>
+                        </div>
+                        {refund.transferContent && (
+                          <p className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-emerald-700">
+                            Nội dung CK: {refund.transferContent}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                <div className="mt-4 grid gap-3 text-sm text-neutral-600 md:grid-cols-2">
-                  <p><span className="font-bold text-neutral-950">Phản hồi:</span> {refund.providerResponseMessage || refund.adminNote || '-'}</p>
-                  <p><span className="font-bold text-neutral-950">Lý do từ chối:</span> {refund.rejectedReason || '-'}</p>
-                  <p><span className="font-bold text-neutral-950">Duyệt lúc:</span> {formatDate(refund.approvedAt)}</p>
-                  <p><span className="font-bold text-neutral-950">Nhận hàng lúc:</span> {formatDate(refund.receivedAt)}</p>
-                  <p><span className="font-bold text-neutral-950">Xử lý lúc:</span> {formatDate(refund.processedAt)}</p>
+                    <div className="rounded-2xl border border-neutral-100 bg-white p-4">
+                      <p className="text-sm font-black text-neutral-950">Lịch sử xử lý</p>
+                      <div className="mt-3">
+                        <RefundMiniTimeline refund={refund} />
+                      </div>
+                    </div>
+
+                    {(refund.providerResponseMessage || refund.adminNote || refund.rejectedReason) && (
+                      <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4 text-sm text-neutral-700">
+                        <p><span className="font-bold text-neutral-950">Phản hồi:</span> {refund.providerResponseMessage || refund.adminNote || '-'}</p>
+                        {refund.rejectedReason && <p className="mt-2"><span className="font-bold text-neutral-950">Lý do từ chối:</span> {refund.rejectedReason}</p>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}

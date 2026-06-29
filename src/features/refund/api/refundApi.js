@@ -46,6 +46,28 @@ export const refundApi = {
     return Array.isArray(data) ? data : []
   },
 
+  async getAdminRefundsCursor({ limit = 20, cursor } = {}) {
+    const response = await http.get('/refunds/admin/cursor', {
+      params: {
+        limit,
+        ...(cursor ? { cursor } : {}),
+      },
+    })
+    const data = unwrapApiResponse(response)
+
+    return {
+      items: Array.isArray(data?.items) ? data.items : [],
+      nextCursor: data?.nextCursor || null,
+      hasNext: Boolean(data?.hasNext),
+      limit: Number(data?.limit || limit),
+    }
+  },
+
+  async getAdminRefundById(id) {
+    const response = await http.get(`/refunds/${id}`)
+    return unwrapApiResponse(response)
+  },
+
   async approveRefund(id, payload) {
     const response = await http.post(`/refunds/${id}/approve`, {
       note: payload?.note || '',
